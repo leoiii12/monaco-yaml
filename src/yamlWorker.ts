@@ -11,6 +11,7 @@ import IWorkerContext = monaco.worker.IWorkerContext;
 
 import * as ls from 'vscode-languageserver-types';
 import * as yamlParser from './languageservice/parser/yamlParser04';
+import * as yamlParser2 from './languageservice/parser/yamlParser07';
 import * as yamlService from './languageservice/yamlLanguageService';
 import * as jsonService from 'vscode-json-languageservice';
 
@@ -51,7 +52,7 @@ export class YAMLWorker {
   public doValidation(uri: string): Thenable<ls.Diagnostic[]> {
     const document = this._getTextDocument(uri);
     if (document) {
-      const yamlDocument = yamlParser.parse(document.getText());
+      const yamlDocument = yamlParser2.parse(document.getText());
       return this._languageService.doValidation(
         this._jsonlanguageService,
         document,
@@ -77,7 +78,7 @@ export class YAMLWorker {
 
   public doHover(uri: string, position: ls.Position): Thenable<ls.Hover> {
     const document = this._getTextDocument(uri);
-    const yamlDocument = yamlParser.parse(document.getText());
+    const yamlDocument = yamlParser2.parse(document.getText());
     return this._languageService.doHover(
       this._jsonlanguageService,
       document,
@@ -104,7 +105,7 @@ export class YAMLWorker {
 
   public findDocumentSymbols(uri: string): Thenable<ls.SymbolInformation[]> {
     const document = this._getTextDocument(uri);
-    const yamlDocument = yamlParser.parse(document.getText());
+    const yamlDocument = yamlParser2.parse(document.getText());
     const symbols = this._languageService.findDocumentSymbols2(
       this._jsonlanguageService,
       document,
@@ -112,9 +113,10 @@ export class YAMLWorker {
     );
     return Promise.resolve(symbols);
   }
+
   public findDocumentColors(uri: string): Thenable<ls.ColorInformation[]> {
     const document = this._getTextDocument(uri);
-    const stylesheet = yamlParser.parse(document.getText());
+    const stylesheet = yamlParser2.parse(document.getText());
     const colorSymbols = this._languageService.findDocumentColors(
       this._jsonlanguageService,
       document,
@@ -122,13 +124,14 @@ export class YAMLWorker {
     );
     return Promise.resolve(colorSymbols);
   }
+
   public getColorPresentations(
     uri: string,
     color: ls.Color,
     range: ls.Range
   ): Thenable<ls.ColorPresentation[]> {
     const document = this._getTextDocument(uri);
-    const stylesheet = yamlParser.parse(document.getText());
+    const stylesheet = yamlParser2.parse(document.getText());
     const colorPresentations = this._languageService.getColorPresentations(
       this._jsonlanguageService,
       document,
