@@ -6,6 +6,7 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
+import 'regenerator-runtime/runtime';
 import Thenable = monaco.Thenable;
 import IWorkerContext = monaco.worker.IWorkerContext;
 
@@ -24,8 +25,6 @@ import {
   ColorPresentation,
   TextDocument,
 } from 'vscode-languageserver-types';
-import * as yamlParser from './languageservice/parser/yamlParser04';
-import * as yamlParser2 from './languageservice/parser/yamlParser07';
 import {
   LanguageService,
   LanguageSettings,
@@ -47,7 +46,7 @@ export class YAMLWorker {
   private _ctx: IWorkerContext;
   private _languageService: LanguageService;
   private _languageSettings: LanguageSettings;
-  private _jsonlanguageService: JsonLanguageService;
+  private _jsonLanguageService: JsonLanguageService;
   private _languageId: string;
 
   constructor(ctx: IWorkerContext, createData: ICreateData) {
@@ -59,7 +58,7 @@ export class YAMLWorker {
       null,
       []
     );
-    this._jsonlanguageService = getJsonLanguageService({
+    this._jsonLanguageService = getJsonLanguageService({
       schemaRequestService:
         createData.enableSchemaRequest && defaultSchemaRequestService,
     });
@@ -73,21 +72,14 @@ export class YAMLWorker {
   public doValidation(uri: string): Thenable<Diagnostic[]> {
     const document = this._getTextDocument(uri);
     if (document) {
-      const yamlDocument = yamlParser2.parse(document.getText());
-      return this._languageService.doValidation(
-        this._jsonlanguageService,
-        document,
-        yamlDocument,
-        false
-      );
+      return this._languageService.doValidation(document, true);
     }
     return Promise.resolve([]);
   }
 
   public doComplete(uri: string, position: Position): Thenable<CompletionList> {
     const document = this._getTextDocument(uri);
-    const yamlDocument = yamlParser.parse(document.getText());
-    return this._languageService.doComplete(document, position, yamlDocument);
+    return this._languageService.doComplete(document, position, true);
   }
 
   public doResolve(item: CompletionItem): Thenable<CompletionItem> {
@@ -96,13 +88,7 @@ export class YAMLWorker {
 
   public doHover(uri: string, position: Position): Thenable<Hover> {
     const document = this._getTextDocument(uri);
-    const yamlDocument = yamlParser2.parse(document.getText());
-    return this._languageService.doHover(
-      this._jsonlanguageService,
-      document,
-      position,
-      yamlDocument
-    );
+    return this._languageService.doHover(document, position);
   }
 
   public format(
@@ -123,23 +109,13 @@ export class YAMLWorker {
 
   public findDocumentSymbols(uri: string): Thenable<SymbolInformation[]> {
     const document = this._getTextDocument(uri);
-    const yamlDocument = yamlParser2.parse(document.getText());
-    const symbols = this._languageService.findDocumentSymbols2(
-      this._jsonlanguageService,
-      document,
-      yamlDocument
-    );
+    const symbols = this._languageService.findDocumentSymbols(document);
     return Promise.resolve(symbols);
   }
 
   public findDocumentColors(uri: string): Thenable<ColorInformation[]> {
     const document = this._getTextDocument(uri);
-    const stylesheet = yamlParser2.parse(document.getText());
-    const colorSymbols = this._languageService.findDocumentColors(
-      this._jsonlanguageService,
-      document,
-      stylesheet
-    );
+    const colorSymbols = this._languageService.findDocumentColors(document);
     return Promise.resolve(colorSymbols);
   }
 
@@ -149,11 +125,8 @@ export class YAMLWorker {
     range: Range
   ): Thenable<ColorPresentation[]> {
     const document = this._getTextDocument(uri);
-    const stylesheet = yamlParser2.parse(document.getText());
     const colorPresentations = this._languageService.getColorPresentations(
-      this._jsonlanguageService,
       document,
-      stylesheet,
       color,
       range
     );

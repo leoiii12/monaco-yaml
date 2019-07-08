@@ -21,7 +21,7 @@ export function setupMode(defaults: LanguageServiceDefaultsImpl): void {
   const worker: languageFeatures.WorkerAccessor = (
     ...uris: Uri[]
   ): Promise<YAMLWorker> => {
-    return Promise.resolve(client.getLanguageServiceWorker(...uris));
+    return client.getLanguageServiceWorker(...uris);
   };
 
   const languageId = defaults.languageId;
