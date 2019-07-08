@@ -2,31 +2,18 @@
  *  Copyright (c) Red Hat. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-import {
-  IPCMessageReader,
-  IPCMessageWriter,
-  createConnection,
-  IConnection,
-  TextDocumentSyncKind,
-  TextDocuments,
-  TextDocument,
-  Diagnostic,
-  DiagnosticSeverity,
-  InitializeParams,
-  InitializeResult,
-  TextDocumentPositionParams,
-  CompletionItem,
-  CompletionItemKind,
-  RequestType,
-} from 'vscode-languageserver';
+import { TextDocument } from 'vscode-languageserver';
 import { getLanguageService } from '../src/languageservice/yamlLanguageService';
-import { JSONSchemaService } from '../src/languageservice/services/jsonSchemaService';
-import { schemaRequestService, workspaceContext } from './utils/testHelper';
+import {
+  schemaRequestService,
+  workspaceContext,
+  setupTextDocument,
+} from './utils/testHelper';
 import { parse as parseYAML } from '../src/languageservice/parser/yamlParser04';
 import { getLineOffsets } from '../src/languageservice/utils/arrUtils';
 const describe = require('mocha').describe;
 const it = require('mocha').it;
-const assert = require('assert');
+import assert = require('assert');
 
 const languageService = getLanguageService(
   schemaRequestService,
@@ -35,7 +22,8 @@ const languageService = getLanguageService(
   null
 );
 
-const uri = 'http://json.schemastore.org/asmdef';
+const uri =
+  'https://gist.githubusercontent.com/JPinkney/510c098c40b0afd574971909eeff3350/raw/7b5861e89167fccb9f1c7cf135a7b0a19c7a07c9/Schema7Test.json';
 const languageSettings = {
   schemas: [],
   completion: true,
@@ -45,66 +33,35 @@ languageSettings.schemas.push({ uri, fileMatch: fileMatch });
 languageService.configure(languageSettings);
 
 suite('Auto Completion Tests', () => {
-  describe('yamlCompletion with asmdef', function() {
-    describe('doComplete', function() {
-      function setup(content: string) {
-        return TextDocument.create(
-          'file://~/Desktop/vscode-k8s/test.yaml',
-          'yaml',
-          0,
-          content
-        );
-      }
+  describe('JSON Schema 7 Tests', function() {
+    function parseSetup(content: string, position) {
+      const testTextDocument = setupTextDocument(content);
+      return completionHelper(
+        testTextDocument,
+        testTextDocument.positionAt(position)
+      );
+    }
 
-      function parseSetup(content: string, position) {
-        const testTextDocument = setup(content);
-        return completionHelper(
-          testTextDocument,
-          testTextDocument.positionAt(position)
-        );
-      }
+    it('Autocomplete works with examples', done => {
+      const content = 'foodItems: ';
+      const completion = parseSetup(content, 12);
+      completion
+        .then(function(result) {
+          assert.notEqual(result.items.length, 0);
+          // Do other stuff here
+        })
+        .then(done, done);
+    });
 
-      it('Array of enum autocomplete without word on array symbol', done => {
-        const content = 'optionalUnityReferences:\n  -';
-        const completion = parseSetup(content, 29);
-        completion
-          .then(function(result) {
-            assert.notEqual(result.items.length, 0);
-          })
-          .then(done, done);
-      });
-
-      it('Array of enum autocomplete without word', done => {
-        const content = 'optionalUnityReferences:\n  - ';
-        const completion = parseSetup(content, 30);
-        completion
-          .then(function(result) {
-            assert.notEqual(result.items.length, 0);
-          })
-          .then(done, done);
-      });
-
-      it('Array of enum autocomplete with letter', done => {
-        const content = 'optionalUnityReferences:\n  - T';
-        const completion = parseSetup(content, 31);
-        completion
-          .then(function(result) {
-            assert.notEqual(result.items.length, 0);
-          })
-          .then(done, done);
-      });
-
-      it('Array of enum autocomplete with multiline text', done => {
-        const content = 'optionalUnityReferences:\n  - T\n    e\n';
-        const completion = parseSetup(content, 31);
-        completion
-          .then(function(result) {
-            assert.notEqual(result.items.length, 0);
-            // textEdit must be single line
-            assert.equal(result.items[0].textEdit, undefined);
-          })
-          .then(done, done);
-      });
+    it('Autocomplete works with const', done => {
+      const content = 'fruit: App';
+      const completion = parseSetup(content, 9);
+      completion
+        .then(function(result) {
+          assert.notEqual(result.items.length, 0);
+          // Do other stuff here
+        })
+        .then(done, done);
     });
   });
 });

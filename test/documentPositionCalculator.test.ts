@@ -6,10 +6,13 @@ import {
   binarySearch,
   getLineStartPositions,
   getPosition,
+  insertionPointReturnValue,
 } from '../src/languageservice/utils/documentPositionCalculator';
+const describe = require('mocha').describe;
+const it = require('mocha').it;
 const assert = require('assert');
 
-describe('DocumentPositionCalculator Tests', () => {
+suite('DocumentPositionCalculator Tests', () => {
   describe('binarySearch', function() {
     it('Binary Search where we are looking for element to the left of center', () => {
       const arr = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];

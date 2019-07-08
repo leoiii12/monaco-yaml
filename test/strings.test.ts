@@ -3,13 +3,15 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import {
-  convertSimple2RegExp,
-  endsWith,
   startsWith,
+  endsWith,
+  convertSimple2RegExp,
 } from '../src/languageservice/utils/strings';
+const describe = require('mocha').describe;
+const it = require('mocha').it;
 const assert = require('assert');
 
-describe('String Tests', () => {
+suite('String Tests', () => {
   describe('startsWith', function() {
     it('String with different lengths', () => {
       const one = 'hello';

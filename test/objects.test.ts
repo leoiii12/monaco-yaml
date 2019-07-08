@@ -3,9 +3,11 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import { equals } from '../src/languageservice/utils/objects';
+const describe = require('mocha').describe;
+const it = require('mocha').it;
 const assert = require('assert');
 
-describe('Object Equals Tests', () => {
+suite('Object Equals Tests', () => {
   describe('Equals', function() {
     it('Both are null', () => {
       const one = null;

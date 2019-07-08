@@ -1,11 +1,13 @@
 'use strict';
 
+const describe = require('mocha').describe;
+const it = require('mocha').it;
 import assert = require('assert');
-import fs = require('fs');
-import path = require('path');
-import url = require('url');
-import * as JsonSchema from '../src/languageservice/jsonSchema';
 import * as SchemaService from '../src/languageservice/services/jsonSchemaService';
+import * as JsonSchema from '../src/languageservice/jsonSchema04';
+import fs = require('fs');
+import url = require('url');
+import path = require('path');
 
 const fixtureDocuments = {
   'http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json':
@@ -25,11 +27,14 @@ const fixtureDocuments = {
   'http://schema.management.azure.com/schemas/2015-08-01/Microsoft.Compute.json':
     'Microsoft.Compute.json',
 };
+
 const requestServiceMock = function(uri: string): Promise<string> {
   if (uri.length && uri[uri.length - 1] === '#') {
     uri = uri.substr(0, uri.length - 1);
   }
+
   const fileName = fixtureDocuments[uri];
+
   if (fileName) {
     return new Promise<string>((c, e) => {
       const fixturePath = path.join(__dirname, './fixtures', fileName);
@@ -42,12 +47,11 @@ const requestServiceMock = function(uri: string): Promise<string> {
 };
 
 const workspaceContext = {
-  resolveRelativePath: (relativePath: string, resource: string) => {
-    return url.resolve(resource, relativePath);
-  },
+  resolveRelativePath: (relativePath: string, resource: string) =>
+    url.resolve(resource, relativePath),
 };
 
-describe('JSON Schema', () => {
+suite('JSON Schema', () => {
   test('Resolving $refs', function(testDone) {
     const service = new SchemaService.JSONSchemaService(
       requestServiceMock,
@@ -75,7 +79,7 @@ describe('JSON Schema', () => {
     service
       .getResolvedSchema('https://myschemastore/main')
       .then(solvedSchema => {
-        assert.deepEqual(solvedSchema.schema.properties.child, {
+        assert.deepEqual(solvedSchema.schema.properties['child'], {
           id: 'https://myschemastore/child',
           type: 'bool',
           description: 'Test description',
@@ -122,7 +126,7 @@ describe('JSON Schema', () => {
     service
       .getResolvedSchema('http://json.schemastore.org/swagger-2.0')
       .then(fs => {
-        assert.deepEqual(fs.schema.properties.responseValue, {
+        assert.deepEqual(fs.schema.properties['responseValue'], {
           type: 'object',
           required: ['$ref'],
           properties: { $ref: { type: 'string' } },
@@ -173,15 +177,15 @@ describe('JSON Schema', () => {
     service
       .getResolvedSchema('https://myschemastore/main/schema1.json')
       .then(fs => {
-        assert.deepEqual(fs.schema.properties.p1, {
+        assert.deepEqual(fs.schema.properties['p1'], {
           type: 'string',
           enum: ['object'],
         });
-        assert.deepEqual(fs.schema.properties.p2, {
+        assert.deepEqual(fs.schema.properties['p2'], {
           type: 'string',
           enum: ['object'],
         });
-        assert.deepEqual(fs.schema.properties.p3, {
+        assert.deepEqual(fs.schema.properties['p3'], {
           type: 'string',
           enum: ['object'],
         });

@@ -3,16 +3,19 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import { TextDocument } from 'vscode-languageserver';
-import { parse as parseYAML } from '../src/languageservice/parser/yamlParser';
-import { getLineOffsets } from '../src/languageservice/utils/arrUtils';
 import { getLanguageService } from '../src/languageservice/yamlLanguageService';
-import { schemaRequestService, workspaceContext } from './testHelper';
-const assert = require('assert');
+import { schemaRequestService, workspaceContext } from './utils/testHelper';
+import { parse as parseYAML } from '../src/languageservice/parser/yamlParser04';
+import { getLineOffsets } from '../src/languageservice/utils/arrUtils';
+const describe = require('mocha').describe;
+const it = require('mocha').it;
+import assert = require('assert');
 
 const languageService = getLanguageService(
   schemaRequestService,
   workspaceContext,
-  []
+  [],
+  null
 );
 
 const uri = 'http://json.schemastore.org/bowerrc';
@@ -21,10 +24,10 @@ const languageSettings = {
   completion: true,
 };
 const fileMatch = ['*.yml', '*.yaml'];
-languageSettings.schemas.push({ uri, fileMatch });
+languageSettings.schemas.push({ uri, fileMatch: fileMatch });
 languageService.configure(languageSettings);
 
-describe('Auto Completion Tests', () => {
+suite('Auto Completion Tests', () => {
   describe('yamlCompletion with bowerrc', function() {
     describe('doComplete', function() {
       function setup(content: string) {
@@ -69,7 +72,7 @@ describe('Auto Completion Tests', () => {
         const completion = parseSetup(content, 12);
         completion
           .then(function(result) {
-            expect(result.items.length).toEqual(1);
+            assert.notEqual(result.items.length, 0);
           })
           .then(done, done);
       });
@@ -89,7 +92,7 @@ describe('Auto Completion Tests', () => {
         const completion = parseSetup(content, 11);
         completion
           .then(function(result) {
-            expect(result.items.length).toEqual(2);
+            assert.equal(result.items.length, 2);
           })
           .then(done, done);
       });
@@ -109,7 +112,7 @@ describe('Auto Completion Tests', () => {
         const completion = parseSetup(content, 9);
         completion
           .then(function(result) {
-            expect(result.items.length).toEqual(1);
+            assert.equal(result.items.length, 1);
           })
           .then(done, done);
       });
@@ -165,7 +168,7 @@ describe('Auto Completion Tests', () => {
       });
 
       it('Autocomplete on multi yaml documents in a single file on root', done => {
-        const content = `---\nanalytics: true\n...\n---\n...`;
+        const content = '---\nanalytics: true\n...\n---\n...';
         const completion = parseSetup(content, 28);
         completion
           .then(function(result) {
@@ -175,7 +178,7 @@ describe('Auto Completion Tests', () => {
       });
 
       it('Autocomplete on multi yaml documents in a single file on scalar', done => {
-        const content = `---\nanalytics: true\n...\n---\njson: \n...`;
+        const content = '---\nanalytics: true\n...\n---\njson: \n...';
         const completion = parseSetup(content, 34);
         completion
           .then(function(result) {
@@ -192,12 +195,12 @@ function is_EOL(c) {
 }
 
 function completionHelper(document: TextDocument, textDocumentPosition) {
-  // Get the string we are looking at via a substring
+  //Get the string we are looking at via a substring
   const linePos = textDocumentPosition.line;
   const position = textDocumentPosition;
   const lineOffset = getLineOffsets(document.getText());
-  const start = lineOffset[linePos]; // Start of where the autocompletion is happening
-  let end = 0; // End of where the autocompletion is happening
+  const start = lineOffset[linePos]; //Start of where the autocompletion is happening
+  let end = 0; //End of where the autocompletion is happening
   if (lineOffset[linePos + 1]) {
     end = lineOffset[linePos + 1];
   } else {
@@ -210,19 +213,19 @@ function completionHelper(document: TextDocument, textDocumentPosition) {
 
   const textLine = document.getText().substring(start, end);
 
-  // Check if the string we are looking at is a node
+  //Check if the string we are looking at is a node
   if (textLine.indexOf(':') === -1) {
-    // We need to add the ":" to load the nodes
+    //We need to add the ":" to load the nodes
 
     let newText = '';
 
-    // This is for the empty line case
+    //This is for the empty line case
     const trimmedText = textLine.trim();
     if (
       trimmedText.length === 0 ||
       (trimmedText.length === 1 && trimmedText[0] === '-')
     ) {
-      // Add a temp node that is in the document but we don't use at all.
+      //Add a temp node that is in the document but we don't use at all.
       newText =
         document.getText().substring(0, start + textLine.length) +
         (trimmedText[0] === '-' && !textLine.endsWith(' ') ? ' ' : '') +
@@ -230,9 +233,9 @@ function completionHelper(document: TextDocument, textDocumentPosition) {
         document
           .getText()
           .substr(lineOffset[linePos + 1] || document.getText().length);
-      // For when missing semi colon case
+      //For when missing semi colon case
     } else {
-      // Add a semicolon to the end of the current line so we can validate the node
+      //Add a semicolon to the end of the current line so we can validate the node
       newText =
         document.getText().substring(0, start + textLine.length) +
         ':\r\n' +
@@ -243,7 +246,7 @@ function completionHelper(document: TextDocument, textDocumentPosition) {
     const jsonDocument = parseYAML(newText);
     return languageService.doComplete(document, position, jsonDocument);
   } else {
-    // All the nodes are loaded
+    //All the nodes are loaded
     position.character = position.character - 1;
     const jsonDocument = parseYAML(document.getText());
     return languageService.doComplete(document, position, jsonDocument);

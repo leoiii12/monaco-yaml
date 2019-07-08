@@ -2,17 +2,52 @@
  *  Copyright (c) Red Hat. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-import { TextDocument } from 'vscode-languageserver';
-import { parse as parseYAML } from '../src/languageservice/parser/yamlParser';
-import { getLineOffsets } from '../src/languageservice/utils/arrUtils';
+import {
+  IPCMessageReader,
+  IPCMessageWriter,
+  createConnection,
+  IConnection,
+  TextDocumentSyncKind,
+  TextDocuments,
+  TextDocument,
+  Diagnostic,
+  DiagnosticSeverity,
+  InitializeParams,
+  InitializeResult,
+  TextDocumentPositionParams,
+  CompletionItem,
+  CompletionItemKind,
+  RequestType,
+} from 'vscode-languageserver';
+import {
+  xhr,
+  XHRResponse,
+  configure as configureHttpRequests,
+  getErrorStatusDescription,
+} from 'request-light';
 import { getLanguageService } from '../src/languageservice/yamlLanguageService';
-import { schemaRequestService, workspaceContext } from './testHelper';
+import Strings = require('../src/languageservice/utils/strings');
+import { URI } from 'vscode-uri';
+import * as URL from 'url';
+import fs = require('fs');
+import { JSONSchemaService } from '../src/languageservice/services/jsonSchemaService';
+import { schemaRequestService, workspaceContext } from './utils/testHelper';
+import { parse as parseYAML } from '../src/languageservice/parser/yamlParser04';
+import { getLineOffsets } from '../src/languageservice/utils/arrUtils';
+const describe = require('mocha').describe;
+const it = require('mocha').it;
 const assert = require('assert');
 
 const languageService = getLanguageService(
   schemaRequestService,
   workspaceContext,
-  []
+  [],
+  null
+);
+
+const schemaService = new JSONSchemaService(
+  schemaRequestService,
+  workspaceContext
 );
 
 const uri = 'http://json.schemastore.org/composer';
@@ -21,10 +56,10 @@ const languageSettings = {
   completion: true,
 };
 const fileMatch = ['*.yml', '*.yaml'];
-languageSettings.schemas.push({ uri, fileMatch });
+languageSettings.schemas.push({ uri, fileMatch: fileMatch });
 languageService.configure(languageSettings);
 
-describe('Auto Completion Tests', () => {
+suite('Auto Completion Tests', () => {
   function setup(content: string) {
     return TextDocument.create(
       'file://~/Desktop/vscode-k8s/test.yaml',
@@ -36,6 +71,7 @@ describe('Auto Completion Tests', () => {
 
   function parseSetup(content: string, position) {
     const testTextDocument = setup(content);
+    const yDoc = parseYAML(testTextDocument.getText());
     return completionHelper(
       testTextDocument,
       testTextDocument.positionAt(position)
@@ -165,12 +201,12 @@ function is_EOL(c) {
 }
 
 function completionHelper(document: TextDocument, textDocumentPosition) {
-  // Get the string we are looking at via a substring
+  //Get the string we are looking at via a substring
   const linePos = textDocumentPosition.line;
   const position = textDocumentPosition;
   const lineOffset = getLineOffsets(document.getText());
-  const start = lineOffset[linePos]; // Start of where the autocompletion is happening
-  let end = 0; // End of where the autocompletion is happening
+  const start = lineOffset[linePos]; //Start of where the autocompletion is happening
+  let end = 0; //End of where the autocompletion is happening
   if (lineOffset[linePos + 1]) {
     end = lineOffset[linePos + 1];
   } else {
@@ -183,19 +219,19 @@ function completionHelper(document: TextDocument, textDocumentPosition) {
 
   const textLine = document.getText().substring(start, end);
 
-  // Check if the string we are looking at is a node
+  //Check if the string we are looking at is a node
   if (textLine.indexOf(':') === -1) {
-    // We need to add the ":" to load the nodes
+    //We need to add the ":" to load the nodes
 
     let newText = '';
 
-    // This is for the empty line case
+    //This is for the empty line case
     const trimmedText = textLine.trim();
     if (
       trimmedText.length === 0 ||
       (trimmedText.length === 1 && trimmedText[0] === '-')
     ) {
-      // Add a temp node that is in the document but we don't use at all.
+      //Add a temp node that is in the document but we don't use at all.
       newText =
         document.getText().substring(0, start + textLine.length) +
         (trimmedText[0] === '-' && !textLine.endsWith(' ') ? ' ' : '') +
@@ -203,9 +239,9 @@ function completionHelper(document: TextDocument, textDocumentPosition) {
         document
           .getText()
           .substr(lineOffset[linePos + 1] || document.getText().length);
-      // For when missing semi colon case
+      //For when missing semi colon case
     } else {
-      // Add a semicolon to the end of the current line so we can validate the node
+      //Add a semicolon to the end of the current line so we can validate the node
       newText =
         document.getText().substring(0, start + textLine.length) +
         ':\r\n' +
@@ -216,7 +252,7 @@ function completionHelper(document: TextDocument, textDocumentPosition) {
     const jsonDocument = parseYAML(newText);
     return languageService.doComplete(document, position, jsonDocument);
   } else {
-    // All the nodes are loaded
+    //All the nodes are loaded
     position.character = position.character - 1;
     const jsonDocument = parseYAML(document.getText());
     return languageService.doComplete(document, position, jsonDocument);
