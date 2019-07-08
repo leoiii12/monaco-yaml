@@ -9,11 +9,29 @@
 import Thenable = monaco.Thenable;
 import IWorkerContext = monaco.worker.IWorkerContext;
 
-import * as ls from 'vscode-languageserver-types';
+import {
+  Diagnostic,
+  Position,
+  CompletionList,
+  CompletionItem,
+  Hover,
+  Range,
+  FormattingOptions,
+  TextEdit,
+  SymbolInformation,
+  ColorInformation,
+} from 'vscode-languageserver-types';
 import * as yamlParser from './languageservice/parser/yamlParser04';
 import * as yamlParser2 from './languageservice/parser/yamlParser07';
-import * as yamlService from './languageservice/yamlLanguageService';
-import * as jsonService from 'vscode-json-languageservice';
+import {
+  LanguageService,
+  LanguageSettings,
+  getLanguageService,
+} from './languageservice/yamlLanguageService';
+import {
+  LanguageService as JsonLanguageService,
+  getLanguageService as getJsonLanguageService,
+} from 'vscode-json-languageservice';
 
 let defaultSchemaRequestService;
 if (typeof fetch !== 'undefined') {
@@ -24,21 +42,21 @@ if (typeof fetch !== 'undefined') {
 
 export class YAMLWorker {
   private _ctx: IWorkerContext;
-  private _languageService: yamlService.LanguageService;
-  private _languageSettings: yamlService.LanguageSettings;
-  private _jsonlanguageService: jsonService.LanguageService;
+  private _languageService: LanguageService;
+  private _languageSettings: LanguageSettings;
+  private _jsonlanguageService: JsonLanguageService;
   private _languageId: string;
 
   constructor(ctx: IWorkerContext, createData: ICreateData) {
     this._ctx = ctx;
     this._languageSettings = createData.languageSettings;
     this._languageId = createData.languageId;
-    this._languageService = yamlService.getLanguageService(
+    this._languageService = getLanguageService(
       createData.enableSchemaRequest && defaultSchemaRequestService,
       null,
       []
     );
-    this._jsonlanguageService = jsonService.getLanguageService({
+    this._jsonlanguageService = getJsonLanguageService({
       schemaRequestService:
         createData.enableSchemaRequest && defaultSchemaRequestService,
     });
@@ -49,7 +67,7 @@ export class YAMLWorker {
     });
   }
 
-  public doValidation(uri: string): Thenable<ls.Diagnostic[]> {
+  public doValidation(uri: string): Thenable<Diagnostic[]> {
     const document = this._getTextDocument(uri);
     if (document) {
       const yamlDocument = yamlParser2.parse(document.getText());
@@ -63,20 +81,17 @@ export class YAMLWorker {
     return Promise.resolve([]);
   }
 
-  public doComplete(
-    uri: string,
-    position: ls.Position
-  ): Thenable<ls.CompletionList> {
+  public doComplete(uri: string, position: Position): Thenable<CompletionList> {
     const document = this._getTextDocument(uri);
     const yamlDocument = yamlParser.parse(document.getText());
     return this._languageService.doComplete(document, position, yamlDocument);
   }
 
-  public doResolve(item: ls.CompletionItem): Thenable<ls.CompletionItem> {
+  public doResolve(item: CompletionItem): Thenable<CompletionItem> {
     return this._languageService.doResolve(item);
   }
 
-  public doHover(uri: string, position: ls.Position): Thenable<ls.Hover> {
+  public doHover(uri: string, position: Position): Thenable<Hover> {
     const document = this._getTextDocument(uri);
     const yamlDocument = yamlParser2.parse(document.getText());
     return this._languageService.doHover(
@@ -89,9 +104,9 @@ export class YAMLWorker {
 
   public format(
     uri: string,
-    range: ls.Range,
-    options: ls.FormattingOptions
-  ): Thenable<ls.TextEdit[]> {
+    range: Range,
+    options: FormattingOptions
+  ): Thenable<TextEdit[]> {
     const document = this._getTextDocument(uri);
     const textEdits = this._languageService.doFormat(document, {
       enable: true,
@@ -103,7 +118,7 @@ export class YAMLWorker {
     return Promise.resolve(this._languageService.resetSchema(uri));
   }
 
-  public findDocumentSymbols(uri: string): Thenable<ls.SymbolInformation[]> {
+  public findDocumentSymbols(uri: string): Thenable<SymbolInformation[]> {
     const document = this._getTextDocument(uri);
     const yamlDocument = yamlParser2.parse(document.getText());
     const symbols = this._languageService.findDocumentSymbols2(
@@ -114,7 +129,7 @@ export class YAMLWorker {
     return Promise.resolve(symbols);
   }
 
-  public findDocumentColors(uri: string): Thenable<ls.ColorInformation[]> {
+  public findDocumentColors(uri: string): Thenable<ColorInformation[]> {
     const document = this._getTextDocument(uri);
     const stylesheet = yamlParser2.parse(document.getText());
     const colorSymbols = this._languageService.findDocumentColors(
@@ -160,7 +175,7 @@ export class YAMLWorker {
 
 export interface ICreateData {
   languageId: string;
-  languageSettings: yamlService.LanguageSettings;
+  languageSettings: LanguageSettings;
   enableSchemaRequest: boolean;
 }
 
