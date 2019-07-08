@@ -20,6 +20,9 @@ import {
   TextEdit,
   SymbolInformation,
   ColorInformation,
+  Color,
+  ColorPresentation,
+  TextDocument,
 } from 'vscode-languageserver-types';
 import * as yamlParser from './languageservice/parser/yamlParser04';
 import * as yamlParser2 from './languageservice/parser/yamlParser07';
@@ -142,9 +145,9 @@ export class YAMLWorker {
 
   public getColorPresentations(
     uri: string,
-    color: ls.Color,
-    range: ls.Range
-  ): Thenable<ls.ColorPresentation[]> {
+    color: Color,
+    range: Range
+  ): Thenable<ColorPresentation[]> {
     const document = this._getTextDocument(uri);
     const stylesheet = yamlParser2.parse(document.getText());
     const colorPresentations = this._languageService.getColorPresentations(
@@ -157,11 +160,11 @@ export class YAMLWorker {
     return Promise.resolve(colorPresentations);
   }
 
-  private _getTextDocument(uri: string): ls.TextDocument {
+  private _getTextDocument(uri: string): TextDocument {
     const models = this._ctx.getMirrorModels();
     for (const model of models) {
       if (model.uri.toString() === uri) {
-        return ls.TextDocument.create(
+        return TextDocument.create(
           uri,
           this._languageId,
           model.version,
