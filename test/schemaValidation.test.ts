@@ -3,12 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import {
-  createJSONLanguageService,
   configureLanguageService,
   setupTextDocument,
 } from './utils/testHelper';
 import { createExpectedError } from './utils/verifyError';
-import { parse as parseYAML } from '../src/languageservice/parser/yamlParser07';
 import { ServiceSetup } from './utils/serviceSetup';
 import {
   StringTypeError,
@@ -21,7 +19,7 @@ import {
 } from './utils/errorMessages';
 const describe = require('mocha').describe;
 const it = require('mocha').it;
-const assert = require('assert');
+import assert = require('assert');
 
 const uri = 'http://json.schemastore.org/bowerrc';
 const fileMatch = ['*.yml', '*.yaml'];
@@ -32,16 +30,6 @@ const languageSettingsSetup = new ServiceSetup()
 const languageService = configureLanguageService(
   languageSettingsSetup.languageSettings
 );
-const jsonLanguageService = createJSONLanguageService();
-jsonLanguageService.configure({
-  schemas: [
-    {
-      uri,
-      fileMatch,
-    },
-  ],
-  validate: true,
-});
 
 // Defines a Mocha test suite to group tests of similar kind together
 suite('Validation Tests', () => {
@@ -49,16 +37,7 @@ suite('Validation Tests', () => {
   describe('Validation', function() {
     function parseSetup(content: string) {
       const testTextDocument = setupTextDocument(content);
-      const yDoc = parseYAML(
-        testTextDocument.getText(),
-        languageSettingsSetup.languageSettings.customTags
-      );
-      return languageService.doValidation(
-        jsonLanguageService,
-        testTextDocument,
-        yDoc,
-        false
-      );
+      return languageService.doValidation(testTextDocument, false);
     }
 
     //Validating basic nodes

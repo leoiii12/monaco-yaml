@@ -2,7 +2,6 @@
  *  Copyright (c) Red Hat. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-import { TextDocument } from 'vscode-languageserver';
 import {
   getLanguageService,
   LanguageSettings,
@@ -13,11 +12,9 @@ import {
   workspaceContext,
   createJSONLanguageService,
 } from './utils/testHelper';
-import { parse as parseYAML2 } from '../src/languageservice/parser/yamlParser07';
-import { parse as parseYAML } from '../src/languageservice/parser/yamlParser04';
 const describe = require('mocha').describe;
 const it = require('mocha').it;
-const assert = require('assert');
+import assert = require('assert');
 
 const languageService = getLanguageService(
   schemaRequestService,

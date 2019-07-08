@@ -9,7 +9,7 @@ import {
 import { ServiceSetup } from './utils/serviceSetup';
 const describe = require('mocha').describe;
 const it = require('mocha').it;
-const assert = require('assert');
+import assert = require('assert');
 
 const languageSettingsSetup = new ServiceSetup().withFormat();
 const languageService = configureLanguageService(
