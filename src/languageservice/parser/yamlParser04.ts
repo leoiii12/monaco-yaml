@@ -5,27 +5,56 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
+import {
+  ASTNode,
+  ErrorCode,
+  BooleanASTNode,
+  NullASTNode,
+  ArrayASTNode,
+  NumberASTNode,
+  ObjectASTNode,
+  PropertyASTNode,
+  StringASTNode,
+  JSONDocument,
+} from './jsonParser04';
+
 import * as nls from 'vscode-nls';
 const localize = nls.loadMessageBundle();
 
-import * as Yaml from '../../yaml-ast-parser/index';
+import * as Yaml from 'yaml-ast-parser-custom-tags';
+import { Schema, Type } from 'js-yaml';
 
-import { Schema } from '../../yaml-ast-parser/schema';
-import { Type } from '../../yaml-ast-parser/type';
-import { ASTNode, ErrorCode, PropertyASTNode } from '../jsonLanguageTypes';
-import { getLineStartPositions } from '../utils/documentPositionCalculator';
-import { SingleYAMLDocument, YAMLDocument } from '../yamlLanguageTypes';
 import {
-  ArrayASTNodeImpl,
-  BooleanASTNodeImpl,
-  NullASTNodeImpl,
-  NumberASTNodeImpl,
-  ObjectASTNodeImpl,
-  PropertyASTNodeImpl,
-  StringASTNodeImpl,
-} from './jsonParser';
+  getLineStartPositions,
+  getPosition,
+} from '../utils/documentPositionCalculator';
 import { parseYamlBoolean } from './scalar-type';
-import { DiagnosticSeverity } from 'vscode-languageserver-types';
+import { filterInvalidCustomTags } from '../utils/arrUtils';
+
+export class SingleYAMLDocument extends JSONDocument {
+  private lines;
+  public root;
+  public errors;
+  public warnings;
+
+  constructor(lines: number[]) {
+    super(null, []);
+    this.lines = lines;
+    this.root = null;
+    this.errors = [];
+    this.warnings = [];
+  }
+
+  public getSchemas(schema, doc, node) {
+    const matchingSchemas = [];
+    doc.validate(schema, matchingSchemas, node.start);
+    return matchingSchemas;
+  }
+
+  public getNodeFromOffset(offset: number): ASTNode {
+    return this.getNodeFromOffsetEndInclusive(offset);
+  }
+}
 
 function recursivelyBuildAst(parent: ASTNode, node: Yaml.YAMLNode): ASTNode {
   if (!node) {
@@ -34,65 +63,66 @@ function recursivelyBuildAst(parent: ASTNode, node: Yaml.YAMLNode): ASTNode {
 
   switch (node.kind) {
     case Yaml.Kind.MAP: {
-      const instance = node as Yaml.YamlMap;
+      const instance = <Yaml.YamlMap>node;
 
-      const result = new ObjectASTNodeImpl(
+      const result = new ObjectASTNode(
         parent,
+        null,
         node.startPosition,
-        node.endPosition - node.startPosition
+        node.endPosition
       );
 
       for (const mapping of instance.mappings) {
-        result.properties.push(recursivelyBuildAst(
-          result,
-          mapping
-        ) as PropertyASTNode);
+        result.addProperty(<PropertyASTNode>(
+          recursivelyBuildAst(result, mapping)
+        ));
       }
 
       return result;
     }
     case Yaml.Kind.MAPPING: {
-      const instance = node as Yaml.YAMLMapping;
+      const instance = <Yaml.YAMLMapping>node;
       const key = instance.key;
-
-      const result = new PropertyASTNodeImpl(
-        parent as ObjectASTNodeImpl,
-        key.startPosition,
-        instance.endPosition - key.startPosition
-      );
-
-      result.colonOffset = key.colonPosition;
 
       // Technically, this is an arbitrary node in YAML
       // I doubt we would get a better string representation by parsing it
-      const keyNode = new StringASTNodeImpl(
-        result,
+      const keyNode = new StringASTNode(
+        null,
+        null,
+        true,
         key.startPosition,
-        key.endPosition - key.startPosition
+        key.endPosition
       );
       keyNode.value = key.value;
-      keyNode.isKey = true;
 
-      // TODO: calculate the correct NULL range.
+      const result = new PropertyASTNode(parent, keyNode);
+      result.end = instance.endPosition;
+
       const valueNode = instance.value
         ? recursivelyBuildAst(result, instance.value)
-        : new NullASTNodeImpl(result, instance.endPosition);
+        : new NullASTNode(
+            parent,
+            key.value,
+            instance.endPosition,
+            instance.endPosition
+          );
+      valueNode.location = key.value;
 
-      result.keyNode = keyNode;
-      result.valueNode = valueNode;
+      result.setValue(valueNode);
 
       return result;
     }
     case Yaml.Kind.SEQ: {
-      const instance = node as Yaml.YAMLSequence;
+      const instance = <Yaml.YAMLSequence>node;
 
-      const result = new ArrayASTNodeImpl(
+      const result = new ArrayASTNode(
         parent,
+        null,
         instance.startPosition,
-        instance.endPosition - instance.startPosition
+        instance.endPosition
       );
 
-      const count = 0;
+      let count = 0;
       for (const item of instance.items) {
         if (item === null && count === instance.items.length - 1) {
           break;
@@ -102,27 +132,29 @@ function recursivelyBuildAst(parent: ASTNode, node: Yaml.YAMLNode): ASTNode {
         // Cannot simply work around it here because we need to know if we are in Flow or Block
         const itemNode =
           item === null
-            ? new NullASTNodeImpl(
+            ? new NullASTNode(
                 parent,
-                instance.startPosition,
-                instance.endPosition - instance.startPosition
+                null,
+                instance.endPosition,
+                instance.endPosition
               )
             : recursivelyBuildAst(result, item);
 
-        result.items.push(itemNode);
+        itemNode.location = count++;
+        result.addItem(itemNode);
       }
 
       return result;
     }
     case Yaml.Kind.SCALAR: {
-      const instance = node as Yaml.YAMLScalar;
+      const instance = <Yaml.YAMLScalar>node;
       const type = Yaml.determineScalarType(instance);
 
       // The name is set either by the sequence or the mapping case.
       const name = null;
       const value = instance.value;
 
-      // This is a patch for redirecting values with these strings to be boolean nodes because its not supported in the parser.
+      //This is a patch for redirecting values with these strings to be boolean nodes because its not supported in the parser.
       const possibleBooleanValues = [
         'y',
         'Y',
@@ -145,55 +177,63 @@ function recursivelyBuildAst(parent: ASTNode, node: Yaml.YAMLNode): ASTNode {
         instance.plainScalar &&
         possibleBooleanValues.indexOf(value.toString()) !== -1
       ) {
-        return new BooleanASTNodeImpl(
+        return new BooleanASTNode(
           parent,
+          name,
           parseYamlBoolean(value),
           node.startPosition,
-          node.endPosition - node.startPosition
+          node.endPosition
         );
       }
 
       switch (type) {
         case Yaml.ScalarType.null: {
-          return new NullASTNodeImpl(
+          return new StringASTNode(
             parent,
+            name,
+            false,
             instance.startPosition,
-            instance.endPosition - instance.startPosition
+            instance.endPosition
           );
         }
         case Yaml.ScalarType.bool: {
-          return new BooleanASTNodeImpl(
+          return new BooleanASTNode(
             parent,
+            name,
             Yaml.parseYamlBoolean(value),
             node.startPosition,
-            node.endPosition - node.startPosition
+            node.endPosition
           );
         }
         case Yaml.ScalarType.int: {
-          const result = new NumberASTNodeImpl(
+          const result = new NumberASTNode(
             parent,
+            name,
             node.startPosition,
-            node.endPosition - node.startPosition
+            node.endPosition
           );
           result.value = Yaml.parseYamlInteger(value);
           result.isInteger = true;
           return result;
         }
         case Yaml.ScalarType.float: {
-          const result = new NumberASTNodeImpl(
+          const result = new NumberASTNode(
             parent,
+            name,
             node.startPosition,
-            node.endPosition - node.startPosition
+            node.endPosition
           );
           result.value = Yaml.parseYamlFloat(value);
           result.isInteger = false;
           return result;
         }
         case Yaml.ScalarType.string: {
-          const result = new StringASTNodeImpl(
+          const result = new StringASTNode(
             parent,
+            name,
+            false,
             node.startPosition,
-            node.endPosition - node.startPosition
+            node.endPosition
           );
           result.value = node.value;
           return result;
@@ -203,22 +243,20 @@ function recursivelyBuildAst(parent: ASTNode, node: Yaml.YAMLNode): ASTNode {
       break;
     }
     case Yaml.Kind.ANCHOR_REF: {
-      const instance = (node as Yaml.YAMLAnchorReference).value;
+      const instance = (<Yaml.YAMLAnchorReference>node).value;
 
       return (
         recursivelyBuildAst(parent, instance) ||
-        new NullASTNodeImpl(
-          parent,
-          node.startPosition,
-          node.endPosition - node.startPosition
-        )
+        new NullASTNode(parent, null, node.startPosition, node.endPosition)
       );
     }
     case Yaml.Kind.INCLUDE_REF: {
-      const result = new StringASTNodeImpl(
+      const result = new StringASTNode(
         parent,
+        null,
+        false,
         node.startPosition,
-        node.endPosition - node.startPosition
+        node.endPosition
       );
       result.value = node.value;
       return result;
@@ -226,18 +264,14 @@ function recursivelyBuildAst(parent: ASTNode, node: Yaml.YAMLNode): ASTNode {
   }
 }
 
-function convertError(e: Yaml.Error) {
+function convertError(e: Yaml.YAMLException) {
   return {
     message: `${e.reason}`,
-    // TODO: YAML ast parser does not give a length for validation error.
     location: {
-      offset: e.mark.position,
-      length: 0,
+      start: e.mark.position,
+      end: e.mark.position + e.mark.column,
+      code: ErrorCode.Undefined,
     },
-    code: ErrorCode.Undefined,
-    severity: e.isWarning
-      ? DiagnosticSeverity.Warning
-      : DiagnosticSeverity.Error,
   };
 }
 
@@ -257,26 +291,23 @@ function createJSONDocument(
         'Expected a YAML object, array or literal'
       ),
       code: ErrorCode.Undefined,
-      location: {
-        offset: yamlDoc.startPosition,
-        length: yamlDoc.endPosition - yamlDoc.startPosition,
-      },
-      severity: DiagnosticSeverity.Error,
+      location: { start: yamlDoc.startPosition, end: yamlDoc.endPosition },
     });
   }
 
   const duplicateKeyReason = 'duplicate key';
 
-  // Patch ontop of yaml-ast-parser to disable duplicate key message on merge key
+  //Patch ontop of yaml-ast-parser to disable duplicate key message on merge key
   const isDuplicateAndNotMergeKey = function(
-    error: Yaml.Error,
+    error: Yaml.YAMLException,
     yamlText: string
   ) {
     const errorConverted = convertError(error);
-    const errorStart = errorConverted.location.offset;
+    const errorStart = errorConverted.location.start;
+    const errorEnd = errorConverted.location.end;
     if (
       error.reason === duplicateKeyReason &&
-      yamlText.substring(errorStart).startsWith('<<')
+      yamlText.substring(errorStart, errorEnd).startsWith('<<')
     ) {
       return false;
     }
@@ -300,26 +331,59 @@ function createJSONDocument(
   return _doc;
 }
 
+export class YAMLDocument {
+  public documents: JSONDocument[];
+  private errors;
+  private warnings;
+
+  constructor(documents: JSONDocument[]) {
+    this.documents = documents;
+    this.errors = [];
+    this.warnings = [];
+  }
+}
+
 export function parse(text: string, customTags = []): YAMLDocument {
   const startPositions = getLineStartPositions(text);
   // This is documented to return a YAMLNode even though the
   // typing only returns a YAMLDocument
-  const yamlDocs: Yaml.YAMLNode[] = [];
+  const yamlDocs = [];
+
+  const filteredTags = filterInvalidCustomTags(customTags);
 
   const schemaWithAdditionalTags = Schema.create(
-    customTags.map(tag => {
+    filteredTags.map(tag => {
       const typeInfo = tag.split(' ');
-      return new Type(typeInfo[0], { kind: typeInfo[1] || 'scalar' });
+      return new Type(typeInfo[0], {
+        kind: (typeInfo[1] && typeInfo[1].toLowerCase()) || 'scalar',
+      });
     })
   );
 
-  // We need compiledTypeMap to be available from schemaWithAdditionalTags before we add the new custom properties
-  customTags.map(tag => {
+  /**
+   * Collect the additional tags into a map of string to possible tag types
+   */
+  const tagWithAdditionalItems = new Map<string, string[]>();
+  filteredTags.forEach(tag => {
     const typeInfo = tag.split(' ');
-    schemaWithAdditionalTags.compiledTypeMap[typeInfo[0]] = new Type(
-      typeInfo[0],
-      { kind: typeInfo[1] || 'scalar' }
-    );
+    const tagName = typeInfo[0];
+    const tagType = (typeInfo[1] && typeInfo[1].toLowerCase()) || 'scalar';
+    if (tagWithAdditionalItems.has(tagName)) {
+      tagWithAdditionalItems.set(
+        tagName,
+        tagWithAdditionalItems.get(tagName).concat([tagType])
+      );
+    } else {
+      tagWithAdditionalItems.set(tagName, [tagType]);
+    }
+  });
+
+  tagWithAdditionalItems.forEach((additionalTagKinds, key) => {
+    const newTagType = new Type(key, {
+      kind: additionalTagKinds[0] || 'scalar',
+    });
+    newTagType.additionalKinds = additionalTagKinds;
+    schemaWithAdditionalTags.compiledTypeMap[key] = newTagType;
   });
 
   const additionalOptions: Yaml.LoadOptions = {

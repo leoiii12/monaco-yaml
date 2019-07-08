@@ -1,39 +1,37 @@
 /*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Red Hat, Inc. All rights reserved.
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-'use strict';
 
 import * as Json from 'jsonc-parser';
+import { JSONSchema, JSONSchemaRef } from '../jsonSchema07';
 import {
-  ArrayASTNode,
-  ASTNode,
-  BooleanASTNode,
-  ErrorCode,
-  JSONPath,
-  NullASTNode,
-  NumberASTNode,
-  ObjectASTNode,
-  PropertyASTNode,
-  StringASTNode,
-} from '../jsonLanguageTypes';
-import { JSONSchema, JSONSchemaRef } from '../jsonSchema';
-import {
-  equals,
-  isBoolean,
-  isDefined,
   isNumber,
+  equals,
   isString,
+  isDefined,
+  isBoolean,
 } from '../utils/objects';
-
 import {
+  ASTNode,
+  ObjectASTNode,
+  ArrayASTNode,
+  BooleanASTNode,
+  NumberASTNode,
+  StringASTNode,
+  NullASTNode,
+  PropertyASTNode,
+} from '../jsonASTTypes';
+import { ErrorCode, JSONPath } from 'vscode-json-languageservice';
+import * as nls from 'vscode-nls';
+import { URI } from 'vscode-uri';
+import {
+  TextDocument,
   Diagnostic,
   DiagnosticSeverity,
   Range,
-  TextDocument,
 } from 'vscode-languageserver-types';
-import * as nls from 'vscode-nls';
-import Uri from 'vscode-uri';
 
 const localize = nls.loadMessageBundle();
 
@@ -68,7 +66,7 @@ export abstract class ASTNodeImpl {
 
   constructor(parent: ASTNode, offset: number, length?: number) {
     this.offset = offset;
-    this.length = length || 0;
+    this.length = length;
     this.parent = parent;
   }
 
@@ -142,7 +140,6 @@ export class NumberASTNodeImpl extends ASTNodeImpl implements NumberASTNode {
 export class StringASTNodeImpl extends ASTNodeImpl implements StringASTNode {
   public type: 'string' = 'string';
   public value: string;
-  public isKey: boolean;
 
   constructor(parent: ASTNode, offset: number, length?: number) {
     super(parent, offset, length);
@@ -213,40 +210,40 @@ export interface ISchemaCollector {
 }
 
 class SchemaCollector implements ISchemaCollector {
-  public schemas: IApplicableSchema[] = [];
+  schemas: IApplicableSchema[] = [];
   constructor(private focusOffset = -1, private exclude: ASTNode = null) {}
-  public add(schema: IApplicableSchema) {
+  add(schema: IApplicableSchema) {
     this.schemas.push(schema);
   }
-  public merge(other: ISchemaCollector) {
+  merge(other: ISchemaCollector) {
     this.schemas.push(...other.schemas);
   }
-  public include(node: ASTNode) {
+  include(node: ASTNode) {
     return (
       (this.focusOffset === -1 || contains(node, this.focusOffset)) &&
       node !== this.exclude
     );
   }
-  public newSub(): ISchemaCollector {
+  newSub(): ISchemaCollector {
     return new SchemaCollector(-1, this.exclude);
   }
 }
 
 class NoOpSchemaCollector implements ISchemaCollector {
+  private constructor() {}
   get schemas() {
     return [];
   }
-
-  public static instance = new NoOpSchemaCollector();
-  private constructor() {}
-  public add(schema: IApplicableSchema) {}
-  public merge(other: ISchemaCollector) {}
-  public include(node: ASTNode) {
+  add(schema: IApplicableSchema) {}
+  merge(other: ISchemaCollector) {}
+  include(node: ASTNode) {
     return true;
   }
-  public newSub(): ISchemaCollector {
+  newSub(): ISchemaCollector {
     return this;
   }
+
+  static instance = new NoOpSchemaCollector();
 }
 
 export class ValidationResult {
@@ -256,6 +253,7 @@ export class ValidationResult {
   public propertiesValueMatches: number;
   public primaryValueMatches: number;
   public enumValueMatch: boolean;
+  // tslint:disable-next-line: no-any
   public enumValues: any[];
 
   constructor() {
@@ -342,6 +340,7 @@ export function newJSONDocument(root: ASTNode, diagnostics: Diagnostic[] = []) {
   return new JSONDocument(root, diagnostics, []);
 }
 
+// tslint:disable-next-line: no-any
 export function getNodeValue(node: ASTNode): any {
   return Json.getNodeValue(node);
 }
@@ -361,33 +360,9 @@ export function contains(
   );
 }
 
-// export function contains(node: ASTNode, offset: number, includeRightBound = false): boolean {
-//   let flag = offset >= node.offset && offset <= (node.offset + node.length);
-//   if (!flag && includeRightBound) {
-//     if (node.parent && node.parent.children && )
-//     const nextSibling = node.parent
-//   }
-//   return flag;
-// }
-
-// export function findNodeAtOffset(node: ASTNode, offset: number, includeRightBound = false): ASTNode | undefined {
-//   if (contains(node, offset, includeRightBound)) {
-//     const children = node.children;
-//     if (Array.isArray(children)) {
-//       for (var i = 0; i < children.length && children[i].offset <= offset; i++) {
-//         const item = findNodeAtOffset(children[i], offset, includeRightBound);
-//         if (item) {
-//           return item;
-//         }
-//       }
-//     }
-//     return node;
-//   }
-// }
-
 export class JSONDocument {
   constructor(
-    public root: ASTNode,
+    public readonly root: ASTNode,
     public readonly syntaxErrors: Diagnostic[] = [],
     public readonly comments: Range[] = []
   ) {}
@@ -397,12 +372,9 @@ export class JSONDocument {
     includeRightBound = false
   ): ASTNode | undefined {
     if (this.root) {
-      return Json.findNodeAtOffset(
-        this.root,
-        offset,
-        includeRightBound
-      ) as ASTNode;
-      // return findNodeAtOffset(this.root, offset, includeRightBound);
+      return <ASTNode>(
+        Json.findNodeAtOffset(this.root, offset, includeRightBound)
+      );
     }
     return void 0;
   }
@@ -492,7 +464,7 @@ function validate(
   }
   _validateNode();
 
-  matchingSchemas.add({ node, schema });
+  matchingSchemas.add({ node: node, schema: schema });
 
   function _validateNode() {
     function matchesType(type: string) {
@@ -512,7 +484,7 @@ function validate(
             localize(
               'typeArrayMismatchWarning',
               'Incorrect type. Expected one of {0}.',
-              (schema.type as string[]).join(', ')
+              (<string[]>schema.type).join(', ')
             ),
         });
       }
@@ -901,7 +873,7 @@ function validate(
               errorMessage = localize('uriEmpty', 'URI expected.');
             } else {
               try {
-                const uri = Uri.parse(node.value);
+                const uri = URI.parse(node.value);
                 if (!uri.scheme && schema.format === 'uri') {
                   errorMessage = localize(
                     'uriSchemeMissing',
@@ -951,6 +923,7 @@ function validate(
               validationResult.problems.push({
                 location: { offset: node.offset, length: node.length },
                 severity: DiagnosticSeverity.Warning,
+                // tslint:disable-next-line: max-line-length
                 message:
                   schema.patternErrorMessage ||
                   schema.errorMessage ||
@@ -990,9 +963,10 @@ function validate(
         if (typeof schema.additionalItems === 'object') {
           for (let i = subSchemas.length; i < node.items.length; i++) {
             const itemValidationResult = new ValidationResult();
+            // tslint:disable-next-line: no-any
             validate(
               node.items[i],
-              schema.additionalItems as any,
+              <any>schema.additionalItems,
               itemValidationResult,
               matchingSchemas
             );
@@ -1074,9 +1048,9 @@ function validate(
 
     if (schema.uniqueItems === true) {
       const values = getNodeValue(node);
-      const duplicates = values.some((value, index) => {
-        return index !== values.lastIndexOf(value);
-      });
+      const duplicates = values.some(
+        (value, index) => index !== values.lastIndexOf(value)
+      );
       if (duplicates) {
         validationResult.problems.push({
           location: { offset: node.offset, length: node.length },
@@ -1097,39 +1071,8 @@ function validate(
     const unprocessedProperties: string[] = [];
     for (const propertyNode of node.properties) {
       const key = propertyNode.keyNode.value;
-
-      // TODO: see https://github.com/redhat-developer/vscode-yaml/issues/60
-      // Replace the merge key with the actual values of what the node value points to in seen keys
-      if (key === '<<' && propertyNode.valueNode) {
-        switch (propertyNode.valueNode.type) {
-          case 'object': {
-            propertyNode.valueNode.properties.forEach(propASTNode => {
-              const propKey = propASTNode.keyNode.value;
-              seenKeys[propKey] = propASTNode.valueNode;
-              unprocessedProperties.push(propKey);
-            });
-            break;
-          }
-          case 'array': {
-            propertyNode.valueNode.items.forEach(
-              (sequenceNode: ObjectASTNode) => {
-                sequenceNode.properties.forEach(propASTNode => {
-                  const seqKey = propASTNode.keyNode.value;
-                  seenKeys[seqKey] = propASTNode.valueNode;
-                  unprocessedProperties.push(seqKey);
-                });
-              }
-            );
-            break;
-          }
-          default: {
-            break;
-          }
-        }
-      } else {
-        seenKeys[key] = propertyNode.valueNode;
-        unprocessedProperties.push(key);
-      }
+      seenKeys[key] = propertyNode.valueNode;
+      unprocessedProperties.push(key);
     }
 
     if (Array.isArray(schema.required)) {
@@ -1143,7 +1086,7 @@ function validate(
             ? { offset: keyNode.offset, length: keyNode.length }
             : { offset: node.offset, length: 1 };
           validationResult.problems.push({
-            location,
+            location: location,
             severity: DiagnosticSeverity.Warning,
             message: localize(
               'MissingRequiredPropWarning',
@@ -1171,7 +1114,7 @@ function validate(
         if (child) {
           if (isBoolean(propertySchema)) {
             if (!propertySchema) {
-              const propertyNode = child.parent as PropertyASTNode;
+              const propertyNode = <PropertyASTNode>child.parent;
               validationResult.problems.push({
                 location: {
                   offset: propertyNode.keyNode.offset,
@@ -1215,7 +1158,7 @@ function validate(
               const propertySchema = schema.patternProperties[propertyPattern];
               if (isBoolean(propertySchema)) {
                 if (!propertySchema) {
-                  const propertyNode = child.parent as PropertyASTNode;
+                  const propertyNode = <PropertyASTNode>child.parent;
                   validationResult.problems.push({
                     location: {
                       offset: propertyNode.keyNode.offset,
@@ -1255,9 +1198,10 @@ function validate(
         const child = seenKeys[propertyName];
         if (child) {
           const propertyValidationResult = new ValidationResult();
+          // tslint:disable-next-line: no-any
           validate(
             child,
-            schema.additionalProperties as any,
+            <any>schema.additionalProperties,
             propertyValidationResult,
             matchingSchemas
           );
@@ -1269,7 +1213,7 @@ function validate(
         for (const propertyName of unprocessedProperties) {
           const child = seenKeys[propertyName];
           if (child) {
-            const propertyNode = child.parent as PropertyASTNode;
+            const propertyNode = <PropertyASTNode>child.parent;
 
             validationResult.problems.push({
               location: {

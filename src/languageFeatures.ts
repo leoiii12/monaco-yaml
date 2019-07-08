@@ -325,9 +325,9 @@ export class CompletionAdapter
               documentation: entry.documentation,
               detail: entry.detail,
               kind: toCompletionItemKind(entry.kind),
+              range: toRange(entry.textEdit.range),
             };
             if (entry.textEdit) {
-              item.range = toRange(entry.textEdit.range);
               item.insertText = entry.textEdit.newText;
             }
             if (entry.additionalTextEdits) {
@@ -483,22 +483,16 @@ export class DocumentSymbolAdapter
         if (!items) {
           return;
         }
-        return items.map(item => toDocumentSymbol(item));
+        return items.map(item => ({
+          name: item.name,
+          detail: '',
+          containerName: item.containerName,
+          kind: toSymbolKind(item.kind),
+          range: toRange(item.location.range),
+          selectionRange: toRange(item.location.range),
+        }));
       });
   }
-}
-
-function toDocumentSymbol(
-  item: ls.DocumentSymbol
-): monaco.languages.DocumentSymbol {
-  return {
-    detail: '',
-    range: toRange(item.range),
-    name: item.name,
-    kind: toSymbolKind(item.kind),
-    selectionRange: toRange(item.selectionRange),
-    children: item.children.map(child => toDocumentSymbol(child)),
-  };
 }
 
 function fromFormattingOptions(

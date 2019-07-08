@@ -9,7 +9,6 @@ import { LanguageServiceDefaultsImpl } from './monaco.contribution';
 import { WorkerManager } from './workerManager';
 import { YAMLWorker } from './yamlWorker';
 
-import Promise = monaco.Promise;
 import Uri = monaco.Uri;
 import IDisposable = monaco.IDisposable;
 
@@ -22,7 +21,7 @@ export function setupMode(defaults: LanguageServiceDefaultsImpl): void {
   const worker: languageFeatures.WorkerAccessor = (
     ...uris: Uri[]
   ): Promise<YAMLWorker> => {
-    return client.getLanguageServiceWorker(...uris);
+    return Promise.resolve(client.getLanguageServiceWorker(...uris));
   };
 
   const languageId = defaults.languageId;
