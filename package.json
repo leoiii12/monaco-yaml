@@ -1,6 +1,6 @@
 {
-  "name": "monaco-yaml",
-  "version": "2.1.1",
+  "name": "@leoiii12/monaco-yaml",
+  "version": "2.2.0",
   "description": "YAML plugin for the Monaco Editor",
   "scripts": {
     "compile": "mrmdir ./out && tsc -p ./tsconfig.json",
@@ -13,15 +13,16 @@
   "author": "Kevin Decker <kpdecker@gmail.com> (http://incaseofstairs.com)",
   "maintainers": [
     "kpdecker",
-    "pengx17"
+    "pengx17",
+    "leoiii12"
   ],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/pengx17/monaco-yaml"
+    "url": "https://github.com/leoiii12/monaco-yaml"
   },
   "bugs": {
-    "url": "https://github.com/pengx17/monaco-yaml/issues"
+    "url": "https://github.com/leoiii12/monaco-yaml/issues"
   },
   "devDependencies": {
     "@types/mocha": "^5.2.7",
