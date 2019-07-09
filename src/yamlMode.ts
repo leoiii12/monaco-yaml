@@ -63,7 +63,7 @@ export function setupMode(defaults: LanguageServiceDefaultsImpl): void {
     monaco.languages.setLanguageConfiguration(languageId, richEditConfiguration)
   );
 
-  // Color adapter should be necessary most of the time:
+  // DISABLED DUE TO NOT IMPLMENTED BY yaml-language-server
   // disposables.push(monaco.languages.registerColorProvider(languageId, new languageFeatures.DocumentColorAdapter(worker)));
 }
 

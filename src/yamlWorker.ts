@@ -30,10 +30,6 @@ import {
   LanguageSettings,
   getLanguageService,
 } from './languageservice/yamlLanguageService';
-import {
-  LanguageService as JsonLanguageService,
-  getLanguageService as getJsonLanguageService,
-} from 'vscode-json-languageservice';
 
 let defaultSchemaRequestService;
 if (typeof fetch !== 'undefined') {
@@ -46,7 +42,6 @@ export class YAMLWorker {
   private _ctx: IWorkerContext;
   private _languageService: LanguageService;
   private _languageSettings: LanguageSettings;
-  private _jsonLanguageService: JsonLanguageService;
   private _languageId: string;
 
   constructor(ctx: IWorkerContext, createData: ICreateData) {
@@ -58,10 +53,6 @@ export class YAMLWorker {
       null,
       []
     );
-    this._jsonLanguageService = getJsonLanguageService({
-      schemaRequestService:
-        createData.enableSchemaRequest && defaultSchemaRequestService,
-    });
     this._languageService.configure({
       ...this._languageSettings,
       hover: true,
