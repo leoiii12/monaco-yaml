@@ -6,14 +6,30 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
+import 'regenerator-runtime/runtime';
 import Thenable = monaco.Thenable;
 import IWorkerContext = monaco.worker.IWorkerContext;
 
-import * as ls from 'vscode-languageserver-types';
-import * as yamlParser from './languageservice/parser/yamlParser04';
-import * as yamlParser2 from './languageservice/parser/yamlParser07';
-import * as yamlService from './languageservice/yamlLanguageService';
-import * as jsonService from 'vscode-json-languageservice';
+import {
+  Diagnostic,
+  Position,
+  CompletionList,
+  CompletionItem,
+  Hover,
+  Range,
+  FormattingOptions,
+  TextEdit,
+  SymbolInformation,
+  ColorInformation,
+  Color,
+  ColorPresentation,
+  TextDocument,
+} from 'vscode-languageserver-types';
+import {
+  LanguageService,
+  LanguageSettings,
+  getLanguageService,
+} from './languageservice/yamlLanguageService';
 
 let defaultSchemaRequestService;
 if (typeof fetch !== 'undefined') {
@@ -24,24 +40,19 @@ if (typeof fetch !== 'undefined') {
 
 export class YAMLWorker {
   private _ctx: IWorkerContext;
-  private _languageService: yamlService.LanguageService;
-  private _languageSettings: yamlService.LanguageSettings;
-  private _jsonlanguageService: jsonService.LanguageService;
+  private _languageService: LanguageService;
+  private _languageSettings: LanguageSettings;
   private _languageId: string;
 
   constructor(ctx: IWorkerContext, createData: ICreateData) {
     this._ctx = ctx;
     this._languageSettings = createData.languageSettings;
     this._languageId = createData.languageId;
-    this._languageService = yamlService.getLanguageService(
+    this._languageService = getLanguageService(
       createData.enableSchemaRequest && defaultSchemaRequestService,
       null,
       []
     );
-    this._jsonlanguageService = jsonService.getLanguageService({
-      schemaRequestService:
-        createData.enableSchemaRequest && defaultSchemaRequestService,
-    });
     this._languageService.configure({
       ...this._languageSettings,
       hover: true,
@@ -49,49 +60,33 @@ export class YAMLWorker {
     });
   }
 
-  public doValidation(uri: string): Thenable<ls.Diagnostic[]> {
+  public doValidation(uri: string): Thenable<Diagnostic[]> {
     const document = this._getTextDocument(uri);
     if (document) {
-      const yamlDocument = yamlParser2.parse(document.getText());
-      return this._languageService.doValidation(
-        this._jsonlanguageService,
-        document,
-        yamlDocument,
-        false
-      );
+      return this._languageService.doValidation(document, true);
     }
     return Promise.resolve([]);
   }
 
-  public doComplete(
-    uri: string,
-    position: ls.Position
-  ): Thenable<ls.CompletionList> {
+  public doComplete(uri: string, position: Position): Thenable<CompletionList> {
     const document = this._getTextDocument(uri);
-    const yamlDocument = yamlParser.parse(document.getText());
-    return this._languageService.doComplete(document, position, yamlDocument);
+    return this._languageService.doComplete(document, position, true);
   }
 
-  public doResolve(item: ls.CompletionItem): Thenable<ls.CompletionItem> {
+  public doResolve(item: CompletionItem): Thenable<CompletionItem> {
     return this._languageService.doResolve(item);
   }
 
-  public doHover(uri: string, position: ls.Position): Thenable<ls.Hover> {
+  public doHover(uri: string, position: Position): Thenable<Hover> {
     const document = this._getTextDocument(uri);
-    const yamlDocument = yamlParser2.parse(document.getText());
-    return this._languageService.doHover(
-      this._jsonlanguageService,
-      document,
-      position,
-      yamlDocument
-    );
+    return this._languageService.doHover(document, position);
   }
 
   public format(
     uri: string,
-    range: ls.Range,
-    options: ls.FormattingOptions
-  ): Thenable<ls.TextEdit[]> {
+    range: Range,
+    options: FormattingOptions
+  ): Thenable<TextEdit[]> {
     const document = this._getTextDocument(uri);
     const textEdits = this._languageService.doFormat(document, {
       enable: true,
@@ -103,50 +98,37 @@ export class YAMLWorker {
     return Promise.resolve(this._languageService.resetSchema(uri));
   }
 
-  public findDocumentSymbols(uri: string): Thenable<ls.SymbolInformation[]> {
+  public findDocumentSymbols(uri: string): Thenable<SymbolInformation[]> {
     const document = this._getTextDocument(uri);
-    const yamlDocument = yamlParser2.parse(document.getText());
-    const symbols = this._languageService.findDocumentSymbols2(
-      this._jsonlanguageService,
-      document,
-      yamlDocument
-    );
+    const symbols = this._languageService.findDocumentSymbols(document);
     return Promise.resolve(symbols);
   }
 
-  public findDocumentColors(uri: string): Thenable<ls.ColorInformation[]> {
+  public findDocumentColors(uri: string): Thenable<ColorInformation[]> {
     const document = this._getTextDocument(uri);
-    const stylesheet = yamlParser2.parse(document.getText());
-    const colorSymbols = this._languageService.findDocumentColors(
-      this._jsonlanguageService,
-      document,
-      stylesheet
-    );
+    const colorSymbols = this._languageService.findDocumentColors(document);
     return Promise.resolve(colorSymbols);
   }
 
   public getColorPresentations(
     uri: string,
-    color: ls.Color,
-    range: ls.Range
-  ): Thenable<ls.ColorPresentation[]> {
+    color: Color,
+    range: Range
+  ): Thenable<ColorPresentation[]> {
     const document = this._getTextDocument(uri);
-    const stylesheet = yamlParser2.parse(document.getText());
     const colorPresentations = this._languageService.getColorPresentations(
-      this._jsonlanguageService,
       document,
-      stylesheet,
       color,
       range
     );
     return Promise.resolve(colorPresentations);
   }
 
-  private _getTextDocument(uri: string): ls.TextDocument {
+  private _getTextDocument(uri: string): TextDocument {
     const models = this._ctx.getMirrorModels();
     for (const model of models) {
       if (model.uri.toString() === uri) {
-        return ls.TextDocument.create(
+        return TextDocument.create(
           uri,
           this._languageId,
           model.version,
@@ -160,7 +142,7 @@ export class YAMLWorker {
 
 export interface ICreateData {
   languageId: string;
-  languageSettings: yamlService.LanguageSettings;
+  languageSettings: LanguageSettings;
   enableSchemaRequest: boolean;
 }
 

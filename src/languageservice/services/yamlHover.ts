@@ -13,14 +13,20 @@ import {
 import { Hover, TextDocument, Position } from 'vscode-languageserver-types';
 import { matchOffsetToDocument2 } from '../utils/arrUtils';
 import { LanguageSettings } from '../yamlLanguageService';
+import { parse as parseYAML } from '../parser/yamlParser07';
 
 export class YAMLHover {
   private promise: PromiseConstructor;
   private shouldHover: boolean;
+  private jsonLanguageService: LanguageService;
 
-  constructor(promiseConstructor: PromiseConstructor) {
+  constructor(
+    promiseConstructor: PromiseConstructor,
+    jsonLanguageService: LanguageService
+  ) {
     this.promise = promiseConstructor || Promise;
     this.shouldHover = true;
+    this.jsonLanguageService = jsonLanguageService;
   }
 
   public configure(languageSettings: LanguageSettings) {
@@ -29,22 +35,17 @@ export class YAMLHover {
     }
   }
 
-  public doHover(
-    jsonLanguageService: LanguageService,
-    document: TextDocument,
-    position: Position,
-    doc
-  ): Thenable<Hover> {
+  public doHover(document: TextDocument, position: Position): Thenable<Hover> {
     if (!this.shouldHover || !document) {
       return this.promise.resolve(void 0);
     }
-
+    const doc = parseYAML(document.getText());
     const offset = document.offsetAt(position);
     const currentDoc = matchOffsetToDocument2(offset, doc);
     if (currentDoc === null) {
       return this.promise.resolve(void 0);
     }
 
-    return jsonLanguageService.doHover(document, position, currentDoc);
+    return this.jsonLanguageService.doHover(document, position, currentDoc);
   }
 }

@@ -5,23 +5,28 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import * as Parser from '../parser/jsonParser07';
+import { parse as parseYAML } from '../parser/yamlParser07';
 
 import {
   SymbolInformation,
   TextDocument,
   DocumentSymbol,
+  ColorInformation,
   Color,
   Range,
+  ColorPresentation,
 } from 'vscode-languageserver-types';
 import { LanguageService } from 'vscode-json-languageservice';
 
 export class YAMLDocumentSymbols {
-  public findDocumentSymbols(
-    jsonLanguageService: LanguageService,
-    document: TextDocument,
-    doc: Parser.JSONDocument
-  ): SymbolInformation[] {
+  private jsonLanguageService: LanguageService;
+
+  constructor(jsonLanguageService: LanguageService) {
+    this.jsonLanguageService = jsonLanguageService;
+  }
+
+  public findDocumentSymbols(document: TextDocument): SymbolInformation[] {
+    const doc = parseYAML(document.getText());
     if (!doc || doc['documents'].length === 0) {
       return null;
     }
@@ -30,7 +35,7 @@ export class YAMLDocumentSymbols {
     for (const yamlDoc of doc['documents']) {
       if (yamlDoc.root) {
         results = results.concat(
-          jsonLanguageService.findDocumentSymbols(document, yamlDoc)
+          this.jsonLanguageService.findDocumentSymbols(document, yamlDoc)
         );
       }
     }
@@ -39,10 +44,9 @@ export class YAMLDocumentSymbols {
   }
 
   public findHierarchicalDocumentSymbols(
-    jsonLanguageService: LanguageService,
-    document: TextDocument,
-    doc: Parser.JSONDocument
+    document: TextDocument
   ): DocumentSymbol[] {
+    const doc = parseYAML(document.getText());
     if (!doc || doc['documents'].length === 0) {
       return null;
     }
@@ -51,7 +55,7 @@ export class YAMLDocumentSymbols {
     for (const yamlDoc of doc['documents']) {
       if (yamlDoc.root) {
         results = results.concat(
-          jsonLanguageService.findDocumentSymbols2(document, yamlDoc)
+          this.jsonLanguageService.findDocumentSymbols2(document, yamlDoc)
         );
       }
     }
@@ -59,11 +63,8 @@ export class YAMLDocumentSymbols {
     return results;
   }
 
-  public findDocumentColors(
-    jsonLanguageService: LanguageService,
-    document: TextDocument,
-    doc: Parser.JSONDocument
-  ): DocumentSymbol[] {
+  public findDocumentColors(document: TextDocument): ColorInformation[] {
+    const doc = parseYAML(document.getText());
     if (!doc || doc['documents'].length === 0) {
       return null;
     }
@@ -72,7 +73,7 @@ export class YAMLDocumentSymbols {
     for (const yamlDoc of doc['documents']) {
       if (yamlDoc.root) {
         results = results.concat(
-          jsonLanguageService.findDocumentColors(document, yamlDoc)
+          this.jsonLanguageService.findDocumentColors(document, yamlDoc)
         );
       }
     }
@@ -81,12 +82,11 @@ export class YAMLDocumentSymbols {
   }
 
   public getColorPresentations(
-    jsonLanguageService: LanguageService,
     document: TextDocument,
-    doc: Parser.JSONDocument,
     color: Color,
     range: Range
-  ): DocumentSymbol[] {
+  ): ColorPresentation[] {
+    const doc = parseYAML(document.getText());
     if (!doc || doc['documents'].length === 0) {
       return null;
     }
@@ -95,7 +95,7 @@ export class YAMLDocumentSymbols {
     for (const yamlDoc of doc['documents']) {
       if (yamlDoc.root) {
         results = results.concat(
-          jsonLanguageService.getColorPresentations(
+          this.jsonLanguageService.getColorPresentations(
             document,
             yamlDoc,
             color,

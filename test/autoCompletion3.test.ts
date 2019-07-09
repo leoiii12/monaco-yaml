@@ -2,31 +2,13 @@
  *  Copyright (c) Red Hat. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-import {
-  IPCMessageReader,
-  IPCMessageWriter,
-  createConnection,
-  IConnection,
-  TextDocumentSyncKind,
-  TextDocuments,
-  TextDocument,
-  Diagnostic,
-  DiagnosticSeverity,
-  InitializeParams,
-  InitializeResult,
-  TextDocumentPositionParams,
-  CompletionItem,
-  CompletionItemKind,
-  RequestType,
-} from 'vscode-languageserver';
+import { TextDocument } from 'vscode-languageserver';
 import { getLanguageService } from '../src/languageservice/yamlLanguageService';
-import { JSONSchemaService } from '../src/languageservice/services/jsonSchemaService';
 import { schemaRequestService, workspaceContext } from './utils/testHelper';
-import { parse as parseYAML } from '../src/languageservice/parser/yamlParser04';
 import { getLineOffsets } from '../src/languageservice/utils/arrUtils';
 const describe = require('mocha').describe;
 const it = require('mocha').it;
-const assert = require('assert');
+import assert = require('assert');
 
 const languageService = getLanguageService(
   schemaRequestService,
@@ -162,12 +144,10 @@ function completionHelper(document: TextDocument, textDocumentPosition) {
           .getText()
           .substr(lineOffset[linePos + 1] || document.getText().length);
     }
-    const jsonDocument = parseYAML(newText);
-    return languageService.doComplete(document, position, jsonDocument);
+    return languageService.doComplete(document, position, false);
   } else {
     //All the nodes are loaded
     position.character = position.character - 1;
-    const jsonDocument = parseYAML(document.getText());
-    return languageService.doComplete(document, position, jsonDocument);
+    return languageService.doComplete(document, position, false);
   }
 }

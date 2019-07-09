@@ -15,7 +15,9 @@ import {
   CustomFormatterOptions,
   LanguageSettings,
 } from '../yamlLanguageService';
-import * as prettier from 'prettier';
+import * as prettierStandalone from 'prettier/standalone';
+import * as yamlParser from 'prettier/parser-yaml';
+import { Options } from 'prettier';
 
 export class YAMLFormatter {
   private formatterEnabled: boolean = true;
@@ -36,10 +38,11 @@ export class YAMLFormatter {
 
     const text = document.getText();
 
-    const formatted = prettier.format(
-      text,
-      Object.assign(options, { parser: 'yaml' as prettier.BuiltInParserName })
-    );
+    const opts = options as Options;
+    opts.plugins = [yamlParser];
+    opts.parser = 'yaml';
+
+    const formatted = prettierStandalone.format(text, opts);
 
     return [
       TextEdit.replace(

@@ -3,11 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import {
-  createJSONLanguageService,
   setupTextDocument,
   configureLanguageService,
 } from './utils/testHelper';
-import { parse as parseYAML } from '../src/languageservice/parser/yamlParser07';
 import { ServiceSetup } from './utils/serviceSetup';
 import { createExpectedError } from './utils/verifyError';
 const describe = require('mocha').describe;
@@ -15,26 +13,19 @@ const it = require('mocha').it;
 const assert = require('assert');
 
 const languageSettingsSetup = new ServiceSetup().withValidate();
-const languageService = configureLanguageService(
+let languageService = configureLanguageService(
   languageSettingsSetup.languageSettings
 );
-
-const jsonLanguageService = createJSONLanguageService();
-jsonLanguageService.configure({
-  validate: true,
-});
 
 // Defines a Mocha test suite to group tests of similar kind together
 suite('Custom Tag tests Tests', () => {
   function parseSetup(content: string, customTags: string[]) {
     const testTextDocument = setupTextDocument(content);
-    const yDoc = parseYAML(testTextDocument.getText(), customTags);
-    return languageService.doValidation(
-      jsonLanguageService,
-      testTextDocument,
-      yDoc,
-      false
+    languageSettingsSetup.languageSettings.customTags = customTags;
+    languageService = configureLanguageService(
+      languageSettingsSetup.languageSettings
     );
+    return languageService.doValidation(testTextDocument, false);
   }
 
   describe('Test that validation does not throw errors', function() {

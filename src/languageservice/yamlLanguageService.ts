@@ -13,7 +13,14 @@ import {
   Position,
   CompletionList,
   Diagnostic,
+  Hover,
+  SymbolInformation,
+  DocumentSymbol,
+  CompletionItem,
+  TextEdit,
+  ColorInformation,
   Color,
+  ColorPresentation,
   Range,
 } from 'vscode-languageserver-types';
 import { JSONSchema } from './jsonSchema04';
@@ -22,7 +29,11 @@ import { YAMLCompletion } from './services/yamlCompletion';
 import { YAMLHover } from './services/yamlHover';
 import { YAMLValidation } from './services/yamlValidation';
 import { YAMLFormatter } from './services/yamlFormatter';
-import { LanguageService as JSONLanguageService } from 'vscode-json-languageservice';
+import {
+  LanguageService as JSONLanguageService,
+  getLanguageService as getJSONLanguageService,
+  JSONWorkerContribution,
+} from 'vscode-json-languageservice';
 
 export interface LanguageSettings {
   validate?: boolean; //Setting for whether we want to validate the schema
@@ -128,73 +139,56 @@ export interface CustomFormatterOptions {
 }
 
 export interface LanguageService {
-  configure(settings): void;
+  configure(settings: LanguageSettings): void;
   registerCustomSchemaProvider(schemaProvider: CustomSchemaProvider): void;
   doComplete(
     document: TextDocument,
     position: Position,
-    doc
+    isKubernetes: boolean
   ): Thenable<CompletionList>;
   doValidation(
-    jsonLanguageService: JSONLanguageService,
     document: TextDocument,
-    yamlDocument,
     isKubernetes: boolean
   ): Thenable<Diagnostic[]>;
-  doHover(
-    jsonLanguageService: JSONLanguageService,
-    document: TextDocument,
-    position: Position,
-    doc
-  );
-  findDocumentSymbols(
-    jsonLanguageService: JSONLanguageService,
-    document: TextDocument,
-    doc
-  );
-  findDocumentSymbols2(
-    jsonLanguageService: JSONLanguageService,
-    document: TextDocument,
-    doc
-  );
-  findDocumentColors(
-    jsonLanguageService: JSONLanguageService,
-    document: TextDocument,
-    doc
-  );
+  doHover(document: TextDocument, position: Position): Thenable<Hover | null>;
+  findDocumentSymbols(document: TextDocument): SymbolInformation[];
+  findDocumentSymbols2(document: TextDocument): DocumentSymbol[];
+  doResolve(completionItem): Thenable<CompletionItem>;
+  findDocumentColors(document: TextDocument): Thenable<ColorInformation[]>;
   getColorPresentations(
-    jsonLanguageService: JSONLanguageService,
     document: TextDocument,
-    doc,
     color: Color,
     range: Range
-  );
-  doResolve(completionItem);
+  ): ColorPresentation[];
   resetSchema(uri: string): boolean;
-  doFormat(document: TextDocument, options: CustomFormatterOptions);
+  doFormat(document: TextDocument, options: CustomFormatterOptions): TextEdit[];
 }
 
 export function getLanguageService(
-  schemaRequestService,
-  workspaceContext,
-  contributions,
-  promiseConstructor?
+  schemaRequestService: SchemaRequestService,
+  workspaceContext: WorkspaceContextService,
+  contributions: JSONWorkerContribution[],
+  promiseConstructor?: PromiseConstructor
 ): LanguageService {
   const promise = promiseConstructor || Promise;
+  const jsonLanguageService = getJSONLanguageService({
+    schemaRequestService,
+    workspaceContext,
+  });
 
   const schemaService = new JSONSchemaService(
     schemaRequestService,
     workspaceContext
   );
-
   const completer = new YAMLCompletion(schemaService, contributions, promise);
-  const hover = new YAMLHover(promise);
-  const yamlDocumentSymbols = new YAMLDocumentSymbols();
-  const yamlValidation = new YAMLValidation(promise);
+  const hover = new YAMLHover(promise, jsonLanguageService);
+  const yamlDocumentSymbols = new YAMLDocumentSymbols(jsonLanguageService);
+  const yamlValidation = new YAMLValidation(promise, jsonLanguageService);
   const formatter = new YAMLFormatter();
 
   return {
     configure: settings => {
+      jsonLanguageService.configure(settings);
       schemaService.clearExternalSchemas();
       if (settings.schemas) {
         settings.schemas.forEach(settings => {
@@ -217,6 +211,12 @@ export function getLanguageService(
     },
     doComplete: completer.doComplete.bind(completer),
     doResolve: completer.doResolve.bind(completer),
+    findDocumentColors: yamlDocumentSymbols.findDocumentColors.bind(
+      yamlDocumentSymbols
+    ),
+    getColorPresentations: yamlDocumentSymbols.getColorPresentations.bind(
+      yamlDocumentSymbols
+    ),
     doValidation: yamlValidation.doValidation.bind(yamlValidation),
     doHover: hover.doHover.bind(hover),
     findDocumentSymbols: yamlDocumentSymbols.findDocumentSymbols.bind(
@@ -225,13 +225,11 @@ export function getLanguageService(
     findDocumentSymbols2: yamlDocumentSymbols.findHierarchicalDocumentSymbols.bind(
       yamlDocumentSymbols
     ),
-    findDocumentColors: yamlDocumentSymbols.findDocumentColors.bind(
-      yamlDocumentSymbols
-    ),
-    getColorPresentations: yamlDocumentSymbols.getColorPresentations.bind(
-      yamlDocumentSymbols
-    ),
-    resetSchema: (uri: string) => schemaService.onResourceChange(uri),
+    resetSchema: (uri: string) => {
+      jsonLanguageService.resetSchema(uri);
+      return schemaService.onResourceChange(uri);
+    },
+
     doFormat: formatter.format.bind(formatter),
   };
 }

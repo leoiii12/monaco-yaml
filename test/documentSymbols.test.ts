@@ -6,11 +6,9 @@ import { getLanguageService } from '../src/languageservice/yamlLanguageService';
 import {
   schemaRequestService,
   workspaceContext,
-  createJSONLanguageService,
   setupTextDocument,
   TEST_URI,
 } from './utils/testHelper';
-import { parse as parseYAML } from '../src/languageservice/parser/yamlParser07';
 import {
   createExpectedSymbolInformation,
   createExpectedDocumentSymbol,
@@ -18,7 +16,7 @@ import {
 import { DocumentSymbol, SymbolKind } from 'vscode-languageserver-types';
 const describe = require('mocha').describe;
 const it = require('mocha').it;
-const assert = require('assert');
+import assert = require('assert');
 
 const languageService = getLanguageService(
   schemaRequestService,
@@ -31,13 +29,7 @@ suite('Document Symbols Tests', () => {
   describe('Document Symbols Tests (Non Hierarchical)', function() {
     function parseNonHierarchicalSetup(content: string) {
       const testTextDocument = setupTextDocument(content);
-      const jsonDocument = parseYAML(testTextDocument.getText());
-      const jsonLanguageService = createJSONLanguageService();
-      return languageService.findDocumentSymbols(
-        jsonLanguageService,
-        testTextDocument,
-        jsonDocument
-      );
+      return languageService.findDocumentSymbols(testTextDocument);
     }
 
     it('Document is empty', done => {
@@ -353,13 +345,7 @@ suite('Document Symbols Tests', () => {
   describe('Document Symbols Tests (Hierarchical)', function() {
     function parseHierarchicalSetup(content: string): DocumentSymbol[] {
       const testTextDocument = setupTextDocument(content);
-      const jsonDocument = parseYAML(testTextDocument.getText());
-      const jsonLanguageService = createJSONLanguageService();
-      return languageService.findDocumentSymbols2(
-        jsonLanguageService,
-        testTextDocument,
-        jsonDocument
-      );
+      return languageService.findDocumentSymbols2(testTextDocument);
     }
 
     it('Document is empty', done => {

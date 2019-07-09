@@ -5,7 +5,7 @@
 import { equals } from '../src/languageservice/utils/objects';
 const describe = require('mocha').describe;
 const it = require('mocha').it;
-const assert = require('assert');
+import assert = require('assert');
 
 suite('Object Equals Tests', () => {
   describe('Equals', function() {

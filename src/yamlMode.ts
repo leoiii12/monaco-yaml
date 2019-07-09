@@ -21,7 +21,7 @@ export function setupMode(defaults: LanguageServiceDefaultsImpl): void {
   const worker: languageFeatures.WorkerAccessor = (
     ...uris: Uri[]
   ): Promise<YAMLWorker> => {
-    return Promise.resolve(client.getLanguageServiceWorker(...uris));
+    return client.getLanguageServiceWorker(...uris);
   };
 
   const languageId = defaults.languageId;
@@ -63,7 +63,7 @@ export function setupMode(defaults: LanguageServiceDefaultsImpl): void {
     monaco.languages.setLanguageConfiguration(languageId, richEditConfiguration)
   );
 
-  // Color adapter should be necessary most of the time:
+  // DISABLED DUE TO NOT IMPLMENTED BY yaml-language-server
   // disposables.push(monaco.languages.registerColorProvider(languageId, new languageFeatures.DocumentColorAdapter(worker)));
 }
 

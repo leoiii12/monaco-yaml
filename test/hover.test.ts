@@ -4,14 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 import { ServiceSetup } from './utils/serviceSetup';
 import {
-  createJSONLanguageService,
   configureLanguageService,
   setupTextDocument,
 } from './utils/testHelper';
-import { parse } from '../src/languageservice/parser/yamlParser07';
 const describe = require('mocha').describe;
 const it = require('mocha').it;
-const assert = require('assert');
+import assert = require('assert');
+import { MarkedString } from 'vscode-languageserver-types';
 
 /**
  * Setup the schema we are going to use with the language settings
@@ -22,29 +21,23 @@ const fileMatch = ['*.yml', '*.yaml'];
 const languageSettingsSetup = new ServiceSetup()
   .withHover()
   .withSchemaFileMatch({ uri: bowerURI, fileMatch: fileMatch });
-const languageService = configureLanguageService(
-  languageSettingsSetup.languageSettings
-);
 
 suite('Hover Tests', () => {
   describe('Hover', function() {
     function parseSetup(content: string, position, schemaURI: string) {
       const testTextDocument = setupTextDocument(content);
-      const jsonDocument = parse(testTextDocument.getText());
-      const jsonLanguageService = createJSONLanguageService();
-      jsonLanguageService.configure({
-        schemas: [
-          {
-            fileMatch,
-            uri: schemaURI,
-          },
-        ],
-      });
+      languageSettingsSetup.languageSettings.schemas = [
+        {
+          fileMatch,
+          uri: schemaURI,
+        },
+      ];
+      const languageService = configureLanguageService(
+        languageSettingsSetup.languageSettings
+      );
       return languageService.doHover(
-        jsonLanguageService,
         testTextDocument,
-        testTextDocument.positionAt(position),
-        jsonDocument
+        testTextDocument.positionAt(position)
       );
     }
 
@@ -53,7 +46,7 @@ suite('Hover Tests', () => {
       const hover = parseSetup(content, 1, bowerURI);
       hover
         .then(function(result) {
-          assert.equal(result.contents.length, 1);
+          assert.equal((result.contents as string).length, 1);
           assert.equal(
             result.contents[0],
             'The directory from which bower should run\\. All relative paths will be calculated according to this setting\\.'
@@ -67,7 +60,7 @@ suite('Hover Tests', () => {
       const hover = parseSetup(content, 6, bowerURI);
       hover
         .then(function(result) {
-          assert.equal(result.contents.length, 1);
+          assert.equal((result.contents as string).length, 1);
           assert.equal(
             result.contents[0],
             'The directory from which bower should run\\. All relative paths will be calculated according to this setting\\.'
@@ -81,7 +74,7 @@ suite('Hover Tests', () => {
       const hover = parseSetup(content, 15, bowerURI);
       hover
         .then(function(result) {
-          assert.equal(result.contents.length, 1);
+          assert.equal((result.contents as MarkedString[]).length, 1);
           assert.equal(result.contents[0], 'A script to run after install');
         })
         .then(done, done);
@@ -92,7 +85,7 @@ suite('Hover Tests', () => {
       const hover = parseSetup(content, 26, bowerURI);
       hover
         .then(function(result) {
-          assert.equal(result.contents.length, 1);
+          assert.equal((result.contents as MarkedString[]).length, 1);
           assert.equal(result.contents[0], 'A script to run after install');
         })
         .then(done, done);
@@ -103,7 +96,7 @@ suite('Hover Tests', () => {
 
       const firstHover = parseSetup(content, 3, bowerURI);
       firstHover.then(function(result) {
-        assert.equal(result.contents.length, 1);
+        assert.equal((result.contents as MarkedString[]).length, 1);
         assert.equal(
           result.contents[0],
           'Contains custom hooks used to trigger other automated tools'
@@ -113,7 +106,7 @@ suite('Hover Tests', () => {
       const secondHover = parseSetup(content, 15, bowerURI);
       secondHover
         .then(function(result) {
-          assert.equal(result.contents.length, 1);
+          assert.equal((result.contents as MarkedString[]).length, 1);
           assert.equal(result.contents[0], 'A script to run after install');
         })
         .then(done, done);
@@ -124,7 +117,7 @@ suite('Hover Tests', () => {
       const hover = parseSetup(content, 3, bowerURI);
       hover
         .then(function(result) {
-          assert.equal(result.contents.length, 1);
+          assert.equal((result.contents as MarkedString[]).length, 1);
           assert.equal(result.contents[0], '');
         })
         .then(done, done);
@@ -135,7 +128,7 @@ suite('Hover Tests', () => {
       const hover = parseSetup(content, 10, bowerURI);
       hover
         .then(function(result) {
-          assert.equal(result.contents.length, 1);
+          assert.equal((result.contents as MarkedString[]).length, 1);
           assert.equal(result.contents[0], '');
         })
         .then(done, done);
@@ -146,7 +139,7 @@ suite('Hover Tests', () => {
       const hover = parseSetup(content, 30, bowerURI);
       hover
         .then(function(result) {
-          assert.equal(result.contents.length, 1);
+          assert.equal((result.contents as MarkedString[]).length, 1);
           assert.equal(
             result.contents[0],
             'A file path to the Bower configuration file'
@@ -160,7 +153,7 @@ suite('Hover Tests', () => {
       const hover = parseSetup(content, 1, bowerURI);
       hover
         .then(function(result) {
-          assert.equal(result.contents.length, 1);
+          assert.equal((result.contents as MarkedString[]).length, 1);
           assert.equal(result.contents[0], '');
         })
         .then(done, done);
@@ -171,7 +164,7 @@ suite('Hover Tests', () => {
       const hover = parseSetup(content, 21, bowerURI);
       hover
         .then(function(result) {
-          assert.equal(result.contents.length, 1);
+          assert.equal((result.contents as MarkedString[]).length, 1);
           assert.equal(result.contents[0], '');
         })
         .then(done, done);
@@ -182,7 +175,7 @@ suite('Hover Tests', () => {
       const hover = parseSetup(content, 14, composerURI);
       hover
         .then(function(result) {
-          assert.notEqual(result.contents.length, 0);
+          assert.notEqual((result.contents as MarkedString[]).length, 0);
           assert.equal(result.contents[0], 'Full name of the author\\.');
         })
         .then(done, done);
@@ -193,7 +186,7 @@ suite('Hover Tests', () => {
       const hover = parseSetup(content, 28, composerURI);
       hover
         .then(function(result) {
-          assert.notEqual(result.contents.length, 0);
+          assert.notEqual((result.contents as MarkedString[]).length, 0);
           assert.equal(result.contents[0], 'Email address of the author\\.');
         })
         .then(done, done);
