@@ -104,6 +104,15 @@ export class YAMLWorker {
     return Promise.resolve(symbols);
   }
 
+  public findDefinitions(
+    uri: string,
+    position: Position
+  ): Thenable<SymbolInformation[]> {
+    const document = this._getTextDocument(uri);
+    const symbols = this._languageService.findDefinitions(document, position);
+    return Promise.resolve(symbols);
+  }
+
   public findDocumentColors(uri: string): Thenable<ColorInformation[]> {
     const document = this._getTextDocument(uri);
     const colorSymbols = this._languageService.findDocumentColors(document);

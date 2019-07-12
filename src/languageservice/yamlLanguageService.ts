@@ -34,6 +34,7 @@ import {
   getLanguageService as getJSONLanguageService,
   JSONWorkerContribution,
 } from 'vscode-json-languageservice';
+import { YAMLDefFinder } from './services/yamlTypeDefFinder';
 
 export interface LanguageSettings {
   validate?: boolean; //Setting for whether we want to validate the schema
@@ -155,6 +156,10 @@ export interface LanguageService {
   findDocumentSymbols2(document: TextDocument): DocumentSymbol[];
   doResolve(completionItem): Thenable<CompletionItem>;
   findDocumentColors(document: TextDocument): Thenable<ColorInformation[]>;
+  findDefinitions(
+    document: TextDocument,
+    position: Position
+  ): SymbolInformation[];
   getColorPresentations(
     document: TextDocument,
     color: Color,
@@ -185,6 +190,7 @@ export function getLanguageService(
   const yamlDocumentSymbols = new YAMLDocumentSymbols(jsonLanguageService);
   const yamlValidation = new YAMLValidation(promise, jsonLanguageService);
   const formatter = new YAMLFormatter();
+  const yamlDefFinder = new YAMLDefFinder(yamlDocumentSymbols);
 
   return {
     configure: settings => {
@@ -225,6 +231,7 @@ export function getLanguageService(
     findDocumentSymbols2: yamlDocumentSymbols.findHierarchicalDocumentSymbols.bind(
       yamlDocumentSymbols
     ),
+    findDefinitions: yamlDefFinder.findDefinitions.bind(yamlDefFinder),
     resetSchema: (uri: string) => {
       jsonLanguageService.resetSchema(uri);
       return schemaService.onResourceChange(uri);

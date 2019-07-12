@@ -62,6 +62,12 @@ export function setupMode(defaults: LanguageServiceDefaultsImpl): void {
   disposables.push(
     monaco.languages.setLanguageConfiguration(languageId, richEditConfiguration)
   );
+  disposables.push(
+    monaco.languages.registerDefinitionProvider(
+      languageId,
+      new languageFeatures.DefinitionProvider(worker)
+    )
+  );
 
   // DISABLED DUE TO NOT IMPLMENTED BY yaml-language-server
   // disposables.push(monaco.languages.registerColorProvider(languageId, new languageFeatures.DocumentColorAdapter(worker)));

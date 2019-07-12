@@ -606,6 +606,37 @@ export class DocumentRangeFormattingEditProvider
   }
 }
 
+export class DefinitionProvider implements monaco.languages.DefinitionProvider {
+  constructor(private _worker: WorkerAccessor) {}
+
+  provideDefinition(
+    model: monaco.editor.ITextModel,
+    position: Position,
+    token: CancellationToken
+  ): Thenable<monaco.languages.LocationLink[]> {
+    const resource = model.uri;
+
+    return this._worker(resource)
+      .then(worker =>
+        worker.findDefinitions(resource.toString(), fromPosition(position))
+      )
+      .then(items => {
+        if (!items) {
+          return [];
+        }
+
+        return items.map(item => {
+          return {
+            originSelectionRange: new Range(1, 1, 1, 1),
+            uri: Uri.parse(item.location.uri),
+            range: toRange(item.location.range),
+            targetSelectionRange: toRange(item.location.range),
+          } as monaco.languages.LocationLink;
+        });
+      });
+  }
+}
+
 export class DocumentColorAdapter
   implements monaco.languages.DocumentColorProvider {
   constructor(private _worker: WorkerAccessor) {}
