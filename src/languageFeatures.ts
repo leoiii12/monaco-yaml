@@ -470,6 +470,30 @@ function toLocation(location: ls.Location): monaco.languages.Location {
   };
 }
 
+export class DefinitionProvider implements monaco.languages.DefinitionProvider {
+  constructor(private _worker: WorkerAccessor) {}
+
+  provideDefinition(
+    model: monaco.editor.ITextModel,
+    position: Position,
+    token: CancellationToken
+  ): Thenable<monaco.languages.LocationLink[]> {
+    const resource = model.uri;
+
+    return this._worker(resource)
+      .then(worker =>
+        worker.findDefinitions(resource.toString(), fromPosition(position))
+      )
+      .then(items => {
+        if (!items) {
+          return [];
+        }
+
+        return items.map(item => toLocation(item.location));
+      });
+  }
+}
+
 // --- document symbols ------
 
 function toSymbolKind(kind: ls.SymbolKind): monaco.languages.SymbolKind {
@@ -544,6 +568,35 @@ export class DocumentSymbolAdapter
   }
 }
 
+export class ReferenceProvider implements monaco.languages.ReferenceProvider {
+  constructor(private _worker: WorkerAccessor) {}
+
+  provideReferences(
+    model: monaco.editor.ITextModel,
+    position: Position,
+    context: monaco.languages.ReferenceContext,
+    token: CancellationToken
+  ): Thenable<monaco.languages.Location[]> {
+    const resource = model.uri;
+
+    console.log(context);
+
+    return this._worker(resource)
+      .then(worker =>
+        worker.findReferences(resource.toString(), fromPosition(position))
+      )
+      .then(items => {
+        if (!items) {
+          return [];
+        }
+
+        return items.map(item => toLocation(item.location));
+      });
+  }
+}
+
+// --- formatting ------
+
 function fromFormattingOptions(
   options: monaco.languages.FormattingOptions
 ): ls.FormattingOptions {
@@ -606,36 +659,7 @@ export class DocumentRangeFormattingEditProvider
   }
 }
 
-export class DefinitionProvider implements monaco.languages.DefinitionProvider {
-  constructor(private _worker: WorkerAccessor) {}
-
-  provideDefinition(
-    model: monaco.editor.ITextModel,
-    position: Position,
-    token: CancellationToken
-  ): Thenable<monaco.languages.LocationLink[]> {
-    const resource = model.uri;
-
-    return this._worker(resource)
-      .then(worker =>
-        worker.findDefinitions(resource.toString(), fromPosition(position))
-      )
-      .then(items => {
-        if (!items) {
-          return [];
-        }
-
-        return items.map(item => {
-          return {
-            originSelectionRange: new Range(1, 1, 1, 1),
-            uri: Uri.parse(item.location.uri),
-            range: toRange(item.location.range),
-            targetSelectionRange: toRange(item.location.range),
-          } as monaco.languages.LocationLink;
-        });
-      });
-  }
-}
+// --- document color ------
 
 export class DocumentColorAdapter
   implements monaco.languages.DocumentColorProvider {

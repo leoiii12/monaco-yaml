@@ -68,6 +68,12 @@ export function setupMode(defaults: LanguageServiceDefaultsImpl): void {
       new languageFeatures.DefinitionProvider(worker)
     )
   );
+  disposables.push(
+    monaco.languages.registerReferenceProvider(
+      languageId,
+      new languageFeatures.ReferenceProvider(worker)
+    )
+  );
 
   // DISABLED DUE TO NOT IMPLMENTED BY yaml-language-server
   // disposables.push(monaco.languages.registerColorProvider(languageId, new languageFeatures.DocumentColorAdapter(worker)));
