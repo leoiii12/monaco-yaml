@@ -122,26 +122,6 @@ export class YAMLWorker {
     return Promise.resolve(symbols);
   }
 
-  public findDocumentColors(uri: string): Thenable<ColorInformation[]> {
-    const document = this._getTextDocument(uri);
-    const colorSymbols = this._languageService.findDocumentColors(document);
-    return Promise.resolve(colorSymbols);
-  }
-
-  public getColorPresentations(
-    uri: string,
-    color: Color,
-    range: Range
-  ): Thenable<ColorPresentation[]> {
-    const document = this._getTextDocument(uri);
-    const colorPresentations = this._languageService.getColorPresentations(
-      document,
-      color,
-      range
-    );
-    return Promise.resolve(colorPresentations);
-  }
-
   private _getTextDocument(uri: string): TextDocument {
     const models = this._ctx.getMirrorModels();
     for (const model of models) {

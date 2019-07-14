@@ -1213,8 +1213,15 @@ function validate(
         for (const propertyName of unprocessedProperties) {
           const child = seenKeys[propertyName];
           if (child) {
-            const propertyNode = <PropertyASTNode>child.parent;
-
+            let propertyNode = null;
+            if (child.type !== 'property') {
+              propertyNode = <PropertyASTNode>child.parent;
+              if (propertyNode.type === 'object') {
+                propertyNode = propertyNode.properties[0];
+              }
+            } else {
+              propertyNode = child;
+            }
             validationResult.problems.push({
               location: {
                 offset: propertyNode.keyNode.offset,

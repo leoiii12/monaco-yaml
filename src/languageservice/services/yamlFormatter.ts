@@ -41,6 +41,7 @@ export class YAMLFormatter {
     const opts = options as Options;
     opts.plugins = [yamlParser];
     opts.parser = 'yaml';
+    opts.singleQuote = true;
 
     const formatted = prettierStandalone.format(text, opts);
 

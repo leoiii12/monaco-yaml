@@ -18,9 +18,6 @@ import {
   DocumentSymbol,
   CompletionItem,
   TextEdit,
-  ColorInformation,
-  Color,
-  ColorPresentation,
   Range,
 } from 'vscode-languageserver-types';
 import { JSONSchema } from './jsonSchema04';
@@ -156,7 +153,6 @@ export interface LanguageService {
   findDocumentSymbols(document: TextDocument): SymbolInformation[];
   findDocumentSymbols2(document: TextDocument): DocumentSymbol[];
   doResolve(completionItem): Thenable<CompletionItem>;
-  findDocumentColors(document: TextDocument): Thenable<ColorInformation[]>;
   findDefinitions(
     document: TextDocument,
     position: Position
@@ -165,11 +161,6 @@ export interface LanguageService {
     document: TextDocument,
     position: Position
   ): SymbolInformation[];
-  getColorPresentations(
-    document: TextDocument,
-    color: Color,
-    range: Range
-  ): ColorPresentation[];
   resetSchema(uri: string): boolean;
   doFormat(document: TextDocument, options: CustomFormatterOptions): TextEdit[];
 }
@@ -223,12 +214,6 @@ export function getLanguageService(
     },
     doComplete: completer.doComplete.bind(completer),
     doResolve: completer.doResolve.bind(completer),
-    findDocumentColors: yamlDocumentSymbols.findDocumentColors.bind(
-      yamlDocumentSymbols
-    ),
-    getColorPresentations: yamlDocumentSymbols.getColorPresentations.bind(
-      yamlDocumentSymbols
-    ),
     doValidation: yamlValidation.doValidation.bind(yamlValidation),
     doHover: hover.doHover.bind(hover),
     findDocumentSymbols: yamlDocumentSymbols.findDocumentSymbols.bind(

@@ -11,10 +11,6 @@ import {
   SymbolInformation,
   TextDocument,
   DocumentSymbol,
-  ColorInformation,
-  Color,
-  Range,
-  ColorPresentation,
 } from 'vscode-languageserver-types';
 import { LanguageService } from 'vscode-json-languageservice';
 
@@ -56,51 +52,6 @@ export class YAMLDocumentSymbols {
       if (yamlDoc.root) {
         results = results.concat(
           this.jsonLanguageService.findDocumentSymbols2(document, yamlDoc)
-        );
-      }
-    }
-
-    return results;
-  }
-
-  public findDocumentColors(document: TextDocument): ColorInformation[] {
-    const doc = parseYAML(document.getText());
-    if (!doc || doc['documents'].length === 0) {
-      return null;
-    }
-
-    let results = [];
-    for (const yamlDoc of doc['documents']) {
-      if (yamlDoc.root) {
-        results = results.concat(
-          this.jsonLanguageService.findDocumentColors(document, yamlDoc)
-        );
-      }
-    }
-
-    return results;
-  }
-
-  public getColorPresentations(
-    document: TextDocument,
-    color: Color,
-    range: Range
-  ): ColorPresentation[] {
-    const doc = parseYAML(document.getText());
-    if (!doc || doc['documents'].length === 0) {
-      return null;
-    }
-
-    let results = [];
-    for (const yamlDoc of doc['documents']) {
-      if (yamlDoc.root) {
-        results = results.concat(
-          this.jsonLanguageService.getColorPresentations(
-            document,
-            yamlDoc,
-            color,
-            range
-          )
         );
       }
     }

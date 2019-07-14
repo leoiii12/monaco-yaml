@@ -659,68 +659,6 @@ export class DocumentRangeFormattingEditProvider
   }
 }
 
-// --- document color ------
-
-export class DocumentColorAdapter
-  implements monaco.languages.DocumentColorProvider {
-  constructor(private _worker: WorkerAccessor) {}
-
-  public provideDocumentColors(
-    model: monaco.editor.IReadOnlyModel,
-    token: CancellationToken
-  ): Thenable<monaco.languages.IColorInformation[]> {
-    const resource = model.uri;
-
-    return this._worker(resource)
-      .then(worker => worker.findDocumentColors(resource.toString()))
-      .then(infos => {
-        if (!infos) {
-          return;
-        }
-        return infos.map(item => ({
-          color: item.color,
-          range: toRange(item.range),
-        }));
-      });
-  }
-
-  public provideColorPresentations(
-    model: monaco.editor.IReadOnlyModel,
-    info: monaco.languages.IColorInformation,
-    token: CancellationToken
-  ): Thenable<monaco.languages.IColorPresentation[]> {
-    const resource = model.uri;
-
-    return this._worker(resource)
-      .then(worker =>
-        worker.getColorPresentations(
-          resource.toString(),
-          info.color,
-          fromRange(info.range)
-        )
-      )
-      .then(presentations => {
-        if (!presentations) {
-          return;
-        }
-        return presentations.map(presentation => {
-          let item: monaco.languages.IColorPresentation = {
-            label: presentation.label,
-          };
-          if (presentation.textEdit) {
-            item.textEdit = toTextEdit(presentation.textEdit);
-          }
-          if (presentation.additionalTextEdits) {
-            item.additionalTextEdits = presentation.additionalTextEdits.map(
-              toTextEdit
-            );
-          }
-          return item;
-        });
-      });
-  }
-}
-
 function toFoldingRangeKind(
   kind: ls.FoldingRangeKind
 ): monaco.languages.FoldingRangeKind {

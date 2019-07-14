@@ -1,6 +1,7 @@
 import { URI } from 'vscode-uri';
 import { IConnection } from 'vscode-languageserver';
 import { xhr, XHRResponse, getErrorStatusDescription } from 'request-light';
+// import fs = require('fs');
 
 import {
   VSCodeContentRequest,
@@ -31,6 +32,19 @@ export const schemaRequestHandler = (
   }
 
   const scheme = URI.parse(uri).scheme.toLowerCase();
+
+  // If the requested schema is a local file, read and return the file contents
+  // if (scheme === 'file') {
+  //   const fsPath = URI.parse(uri).fsPath;
+
+  //   return new Promise<string>((c, e) => {
+  //     fs.readFile(fsPath, 'UTF-8', (err, result) =>
+  //       // If there was an error reading the file, return empty error message
+  //       // Otherwise return the file contents as a string
+  //       err ? e('') : c(result.toString())
+  //     );
+  //   });
+  // }
 
   // vscode schema content requests are forwarded to the client through LSP
   // This is a non-standard LSP extension introduced by the JSON language server
