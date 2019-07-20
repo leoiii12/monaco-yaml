@@ -14,6 +14,7 @@ import {
 const describe = require('mocha').describe;
 const it = require('mocha').it;
 import assert = require('assert');
+import { MarkedString } from 'vscode-languageserver-types';
 
 const languageService = getLanguageService(
   schemaRequestService,
@@ -28,6 +29,7 @@ const languageSettings: LanguageSettings = {
   schemas: [],
   validate: true,
   completion: true,
+  hover: true,
 };
 const fileMatch = ['*.yml', '*.yaml'];
 languageSettings.schemas.push({ uri, fileMatch: fileMatch });
@@ -296,6 +298,27 @@ suite('Kubernetes Integration Tests', () => {
           })
           .then(done, done);
       });
+    });
+  });
+
+  describe('yamlHover with kubernetes', function() {
+    function parseSetup(content: string, offset: number) {
+      const testTextDocument = setupTextDocument(content);
+      return languageService.doHover(
+        testTextDocument,
+        testTextDocument.positionAt(offset)
+      );
+    }
+
+    it('Hover on incomplete kubernetes document', done => {
+      const content =
+        'apiVersion: v1\nmetadata:\n  name: test\nkind: Deployment\nspec:\n   ';
+      const hover = parseSetup(content, 58);
+      hover
+        .then(function(result) {
+          assert.equal((result.contents as MarkedString[]).length, 1);
+        })
+        .then(done, done);
     });
   });
 });

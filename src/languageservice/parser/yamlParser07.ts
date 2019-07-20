@@ -33,6 +33,7 @@ export class SingleYAMLDocument extends JSONDocument {
   public root;
   public errors;
   public warnings;
+  public isKubernetes: boolean;
 
   constructor(lines: number[]) {
     super(null, []);
@@ -321,11 +322,11 @@ function createJSONDocument(
 }
 
 export class YAMLDocument {
-  public documents: JSONDocument[];
+  public documents: SingleYAMLDocument[];
   private errors;
   private warnings;
 
-  constructor(documents: JSONDocument[]) {
+  constructor(documents: SingleYAMLDocument[]) {
     this.documents = documents;
     this.errors = [];
     this.warnings = [];

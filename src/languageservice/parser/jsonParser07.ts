@@ -318,10 +318,27 @@ export class ValidationResult {
     }
   }
 
-  public compare(other: ValidationResult): number {
+  public compareGeneric(other: ValidationResult): number {
     const hasProblems = this.hasProblems();
     if (hasProblems !== other.hasProblems()) {
       return hasProblems ? -1 : 1;
+    }
+    if (this.enumValueMatch !== other.enumValueMatch) {
+      return other.enumValueMatch ? -1 : 1;
+    }
+    if (this.propertiesValueMatches !== other.propertiesValueMatches) {
+      return this.propertiesValueMatches - other.propertiesValueMatches;
+    }
+    if (this.primaryValueMatches !== other.primaryValueMatches) {
+      return this.primaryValueMatches - other.primaryValueMatches;
+    }
+    return this.propertiesMatches - other.propertiesMatches;
+  }
+
+  public compareKubernetes(other: ValidationResult): number {
+    const hasProblems = this.hasProblems();
+    if (this.propertiesMatches !== other.propertiesMatches) {
+      return this.propertiesMatches - other.propertiesMatches;
     }
     if (this.enumValueMatch !== other.enumValueMatch) {
       return other.enumValueMatch ? -1 : 1;
@@ -331,6 +348,9 @@ export class ValidationResult {
     }
     if (this.propertiesValueMatches !== other.propertiesValueMatches) {
       return this.propertiesValueMatches - other.propertiesValueMatches;
+    }
+    if (hasProblems !== other.hasProblems()) {
+      return hasProblems ? -1 : 1;
     }
     return this.propertiesMatches - other.propertiesMatches;
   }
@@ -361,6 +381,8 @@ export function contains(
 }
 
 export class JSONDocument {
+  public isKubernetes: boolean;
+
   constructor(
     public readonly root: ASTNode,
     public readonly syntaxErrors: Diagnostic[] = [],
@@ -405,7 +427,8 @@ export class JSONDocument {
         this.root,
         schema,
         validationResult,
-        NoOpSchemaCollector.instance
+        NoOpSchemaCollector.instance,
+        this.isKubernetes
       );
       return validationResult.problems.map(p => {
         const range = Range.create(
@@ -425,7 +448,13 @@ export class JSONDocument {
   ): IApplicableSchema[] {
     const matchingSchemas = new SchemaCollector(focusOffset, exclude);
     if (this.root && schema) {
-      validate(this.root, schema, new ValidationResult(), matchingSchemas);
+      validate(
+        this.root,
+        schema,
+        new ValidationResult(),
+        matchingSchemas,
+        this.isKubernetes
+      );
     }
     return matchingSchemas.schemas;
   }
@@ -435,7 +464,8 @@ function validate(
   node: ASTNode,
   schema: JSONSchema,
   validationResult: ValidationResult,
-  matchingSchemas: ISchemaCollector
+  matchingSchemas: ISchemaCollector,
+  isKubernetes: boolean
 ) {
   if (!node || !matchingSchemas.include(node)) {
     return;
@@ -459,7 +489,8 @@ function validate(
         node.valueNode,
         schema,
         validationResult,
-        matchingSchemas
+        matchingSchemas,
+        isKubernetes
       );
   }
   _validateNode();
@@ -509,7 +540,8 @@ function validate(
           node,
           asSchema(subSchemaRef),
           validationResult,
-          matchingSchemas
+          matchingSchemas,
+          isKubernetes
         );
       }
     }
@@ -517,7 +549,13 @@ function validate(
     if (notSchema) {
       const subValidationResult = new ValidationResult();
       const subMatchingSchemas = matchingSchemas.newSub();
-      validate(node, notSchema, subValidationResult, subMatchingSchemas);
+      validate(
+        node,
+        notSchema,
+        subValidationResult,
+        subMatchingSchemas,
+        isKubernetes
+      );
       if (!subValidationResult.hasProblems()) {
         validationResult.problems.push({
           location: { offset: node.offset, length: node.length },
@@ -550,7 +588,13 @@ function validate(
         const subSchema = asSchema(subSchemaRef);
         const subValidationResult = new ValidationResult();
         const subMatchingSchemas = matchingSchemas.newSub();
-        validate(node, subSchema, subValidationResult, subMatchingSchemas);
+        validate(
+          node,
+          subSchema,
+          subValidationResult,
+          subMatchingSchemas,
+          isKubernetes
+        );
         if (!subValidationResult.hasProblems()) {
           matches.push(subSchema);
         }
@@ -560,35 +604,21 @@ function validate(
             validationResult: subValidationResult,
             matchingSchemas: subMatchingSchemas,
           };
+        } else if (isKubernetes) {
+          bestMatch = alternativeComparison(
+            subValidationResult,
+            bestMatch,
+            subSchema,
+            subMatchingSchemas
+          );
         } else {
-          if (
-            !maxOneMatch &&
-            !subValidationResult.hasProblems() &&
-            !bestMatch.validationResult.hasProblems()
-          ) {
-            // no errors, both are equally good matches
-            bestMatch.matchingSchemas.merge(subMatchingSchemas);
-            bestMatch.validationResult.propertiesMatches +=
-              subValidationResult.propertiesMatches;
-            bestMatch.validationResult.propertiesValueMatches +=
-              subValidationResult.propertiesValueMatches;
-          } else {
-            const compareResult = subValidationResult.compare(
-              bestMatch.validationResult
-            );
-            if (compareResult > 0) {
-              // our node is the best matching so far
-              bestMatch = {
-                schema: subSchema,
-                validationResult: subValidationResult,
-                matchingSchemas: subMatchingSchemas,
-              };
-            } else if (compareResult === 0) {
-              // there's already a best matching but we are as good
-              bestMatch.matchingSchemas.merge(subMatchingSchemas);
-              bestMatch.validationResult.mergeEnumValues(subValidationResult);
-            }
-          }
+          bestMatch = genericComparison(
+            maxOneMatch,
+            subValidationResult,
+            bestMatch,
+            subSchema,
+            subMatchingSchemas
+          );
         }
       }
 
@@ -623,7 +653,13 @@ function validate(
       const subValidationResult = new ValidationResult();
       const subMatchingSchemas = matchingSchemas.newSub();
 
-      validate(node, asSchema(schema), subValidationResult, subMatchingSchemas);
+      validate(
+        node,
+        asSchema(schema),
+        subValidationResult,
+        subMatchingSchemas,
+        isKubernetes
+      );
 
       validationResult.merge(subValidationResult);
       validationResult.propertiesMatches +=
@@ -642,7 +678,13 @@ function validate(
       const subValidationResult = new ValidationResult();
       const subMatchingSchemas = matchingSchemas.newSub();
 
-      validate(node, subSchema, subValidationResult, subMatchingSchemas);
+      validate(
+        node,
+        subSchema,
+        subValidationResult,
+        subMatchingSchemas,
+        isKubernetes
+      );
       matchingSchemas.merge(subMatchingSchemas);
 
       if (!subValidationResult.hasProblems()) {
@@ -953,7 +995,13 @@ function validate(
         const itemValidationResult = new ValidationResult();
         const item = node.items[index];
         if (item) {
-          validate(item, subSchema, itemValidationResult, matchingSchemas);
+          validate(
+            item,
+            subSchema,
+            itemValidationResult,
+            matchingSchemas,
+            isKubernetes
+          );
           validationResult.mergePropertyMatch(itemValidationResult);
         } else if (node.items.length >= subSchemas.length) {
           validationResult.propertiesValueMatches++;
@@ -968,7 +1016,8 @@ function validate(
               node.items[i],
               <any>schema.additionalItems,
               itemValidationResult,
-              matchingSchemas
+              matchingSchemas,
+              isKubernetes
             );
             validationResult.mergePropertyMatch(itemValidationResult);
           }
@@ -989,7 +1038,13 @@ function validate(
       if (itemSchema) {
         for (const item of node.items) {
           const itemValidationResult = new ValidationResult();
-          validate(item, itemSchema, itemValidationResult, matchingSchemas);
+          validate(
+            item,
+            itemSchema,
+            itemValidationResult,
+            matchingSchemas,
+            isKubernetes
+          );
           validationResult.mergePropertyMatch(itemValidationResult);
         }
       }
@@ -1003,7 +1058,8 @@ function validate(
           item,
           containsSchema,
           itemValidationResult,
-          NoOpSchemaCollector.instance
+          NoOpSchemaCollector.instance,
+          isKubernetes
         );
         return !itemValidationResult.hasProblems();
       });
@@ -1139,7 +1195,8 @@ function validate(
               child,
               propertySchema,
               propertyValidationResult,
-              matchingSchemas
+              matchingSchemas,
+              isKubernetes
             );
             validationResult.mergePropertyMatch(propertyValidationResult);
           }
@@ -1183,7 +1240,8 @@ function validate(
                   child,
                   propertySchema,
                   propertyValidationResult,
-                  matchingSchemas
+                  matchingSchemas,
+                  isKubernetes
                 );
                 validationResult.mergePropertyMatch(propertyValidationResult);
               }
@@ -1203,7 +1261,8 @@ function validate(
             child,
             <any>schema.additionalProperties,
             propertyValidationResult,
-            matchingSchemas
+            matchingSchemas,
+            isKubernetes
           );
           validationResult.mergePropertyMatch(propertyValidationResult);
         }
@@ -1299,7 +1358,8 @@ function validate(
                 node,
                 propertySchema,
                 propertyValidationResult,
-                matchingSchemas
+                matchingSchemas,
+                isKubernetes
               );
               validationResult.mergePropertyMatch(propertyValidationResult);
             }
@@ -1317,10 +1377,75 @@ function validate(
             key,
             propertyNames,
             validationResult,
-            NoOpSchemaCollector.instance
+            NoOpSchemaCollector.instance,
+            isKubernetes
           );
         }
       }
     }
+  }
+
+  //Alternative comparison is specifically used by the kubernetes/openshift schema but may lead to better results then genericComparison depending on the schema
+  function alternativeComparison(
+    subValidationResult,
+    bestMatch,
+    subSchema,
+    subMatchingSchemas
+  ) {
+    const compareResult = subValidationResult.compareKubernetes(
+      bestMatch.validationResult
+    );
+    if (compareResult > 0) {
+      // our node is the best matching so far
+      bestMatch = {
+        schema: subSchema,
+        validationResult: subValidationResult,
+        matchingSchemas: subMatchingSchemas,
+      };
+    } else if (compareResult === 0) {
+      // there's already a best matching but we are as good
+      bestMatch.matchingSchemas.merge(subMatchingSchemas);
+      bestMatch.validationResult.mergeEnumValues(subValidationResult);
+    }
+    return bestMatch;
+  }
+
+  //genericComparison tries to find the best matching schema using a generic comparison
+  function genericComparison(
+    maxOneMatch,
+    subValidationResult,
+    bestMatch,
+    subSchema,
+    subMatchingSchemas
+  ) {
+    if (
+      !maxOneMatch &&
+      !subValidationResult.hasProblems() &&
+      !bestMatch.validationResult.hasProblems()
+    ) {
+      // no errors, both are equally good matches
+      bestMatch.matchingSchemas.merge(subMatchingSchemas);
+      bestMatch.validationResult.propertiesMatches +=
+        subValidationResult.propertiesMatches;
+      bestMatch.validationResult.propertiesValueMatches +=
+        subValidationResult.propertiesValueMatches;
+    } else {
+      const compareResult = subValidationResult.compareGeneric(
+        bestMatch.validationResult
+      );
+      if (compareResult > 0) {
+        // our node is the best matching so far
+        bestMatch = {
+          schema: subSchema,
+          validationResult: subValidationResult,
+          matchingSchemas: subMatchingSchemas,
+        };
+      } else if (compareResult === 0) {
+        // there's already a best matching but we are as good
+        bestMatch.matchingSchemas.merge(subMatchingSchemas);
+        bestMatch.validationResult.mergeEnumValues(subValidationResult);
+      }
+    }
+    return bestMatch;
   }
 }

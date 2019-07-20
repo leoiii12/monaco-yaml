@@ -1,4 +1,4 @@
-# Monaco YAML
+# @leoiii12/monaco-yaml
 
 YAML language plugin for the Monaco Editor. It provides the following features when editing YAML files:
 * Code completion, based on JSON schemas or by looking at similar objects in the same file
@@ -8,6 +8,8 @@ YAML language plugin for the Monaco Editor. It provides the following features w
 * Document Symbols
 * Syntax highlighting
 * Automatically load remote schema files (by enabling DiagnosticsOptions.enableSchemaRequest)
+* Find and Goto $def
+* Find references of $def
 
 Schemas can also be provided by configuration. See [here](https://github.com/Microsoft/monaco-json/blob/master/src/monaco.d.ts)
 for the API that the JSON plugin offers to configure the JSON language support.
