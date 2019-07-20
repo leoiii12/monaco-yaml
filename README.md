@@ -16,29 +16,50 @@ for the API that the JSON plugin offers to configure the JSON language support.
 
 ## Installing
 
-`yarn add monaco-yaml`
-See `test/index.html` as an example. Currently only load with vs loader is supported. (AMD)
-Load with ESM is added, but not yet tested.
+```html
+<head>
+  <link rel="stylesheet" data-name="vs/editor/editor.main" href="assets/monaco/vs/editor/editor.main.css" />
+
+  <script src="assets/monaco/vs/loader.js"> </script>
+  <script src="assets/monaco/vs/editor/editor.main.nls.js"> </script>
+  <script src="assets/monaco/vs/editor/editor.main.js"> </script>
+  <script src="assets/monaco/vs/basic-languages/monaco.contribution.js"> </script>
+
+  <!-- @leoiii12/monaco-yaml -->
+  <script src="assets/monaco/vs/language/yaml/monaco.contribution.js"> </script>
+  <script>
+    window.require.config({ paths: { 'vs': `assets/monaco/vs` } });
+  </script>
+</head>
+```
+```typescript
+
+declare var monaco: typeof import('monaco-editor-core');
+
+(monaco.languages as any).yaml.yamlDefaults.setDiagnosticsOptions({
+  enableSchemaRequest: true,
+  validate: true,
+  hover: true,
+  completion: true,
+  format: true,
+  schemas: [
+    {
+      uri: 'https://raw.githubusercontent.com/OAI/OpenAPI-Specification/master/schemas/v2.0/schema.json',
+      fileMatch: ['swagger://*.yaml'],
+    },
+  ]
+});
+```
 
 ## Development
 
-* `git clone https://github.com/pengx17/monaco-yaml`
+* `git clone https://github.com/leoiii12/monaco-yaml`
 * `cd monaco-yaml`
-* `yarn`
-* open `$/monaco-yaml/demo/index.html` in your favorite browser.
-
-A running example:
-![demo-image](test-demo.png)
+* `npm install`
 
 ## Credits
 - https://github.com/redhat-developer/yaml-language-server
-
-### Maintain
-Manually clone dependencies list below and update the project files accordingly:
-- `src/languageservice`: https://github.com/redhat-developer/yaml-language-server
-  - `cp yaml-language-server/src/languageservice monaco-yaml/src/languageservice`
-  - Modify the import paths, go to the test page and see if it still works
-- `src/yaml-ast-parser`: https://github.com/mulesoft-labs/yaml-ast-parser/tree/master/src
+- https://github.com/pengx17/monaco-yaml
 
 ## License
-[MIT](https://github.com/pengx17/monaco-yaml/blob/master/LICENSE.md)
+[MIT](https://github.com/leoiii12/monaco-yaml/blob/master/LICENSE.md)
